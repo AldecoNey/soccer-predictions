@@ -1,0 +1,16 @@
+# Prueba de concepto del mecanismo de scheduling que usarán los pipelines
+# reales de T-72h/T-24h/T-2h (ver ADR-0002, Fase 7 de docs/roadmap/ROADMAP.md).
+# Este workflow no hace nada de negocio todavía — solo valida que GitHub
+# Actions puede disparar trabajos programados en este repo público sin costo.
+name: Scheduled hello world (Phase 1 smoke test)
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # todos los días 12:00 UTC — placeholder, se reemplaza en Fase 7
+  workflow_dispatch: {} # permite disparo manual para verificar sin esperar al cron
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Scheduling funciona. Trigger=${{ github.event_name }} Timestamp=$(date -u)"
