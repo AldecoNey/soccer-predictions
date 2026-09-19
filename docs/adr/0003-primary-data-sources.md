@@ -12,7 +12,7 @@ Necesitamos fixtures, resultados, alineaciones, lesiones y estadísticas de part
 
 | Proveedor | Veredicto |
 |---|---|
-| API-Football (api-sports.io) | Cobertura confirmada de Liga Profesional (league ID 44): fixtures, alineaciones, lesiones, stats, odds. Free: 100 req/día. Pro: $19/mes, 7500 req/día |
+| API-Football (api-sports.io) | Cobertura confirmada de Liga Profesional (**league ID 128** — ver nota de corrección abajo): fixtures, alineaciones, lesiones, stats, odds. Free: 100 req/día. Pro: $19/mes, 7500 req/día |
 | football-data.org | Free tier NO incluye Argentina (solo top-5 europeas) → descartado para MVP |
 | Sportmonks | Plan free cubre solo 2 ligas, no confirmado si incluye Argentina; Starter $29/mes agota casi todo el presupuesto → descartado por ahora |
 | TheSportsDB | Datos poco profundos (metadata, no stats de rendimiento) → solo como fallback de metadata/escudos |
@@ -38,6 +38,25 @@ Necesitamos fixtures, resultados, alineaciones, lesiones y estadísticas de part
 - Negativas / deuda técnica aceptada: 100 req/día es un límite ajustado si se necesitan alineaciones/lesiones actualizadas con frecuencia cerca del kickoff (T-2h); el diseño del pipeline (Fase 2) debe presupuestar cuidadosamente las llamadas diarias por partido y por snapshot.
 - Riesgo abierto: no se confirmó si The Odds API cubre la Liga Profesional Argentina — la Fase 0 debe verificarlo con una cuenta de prueba antes de construir el módulo de benchmark de bookmakers.
 - Trigger de revisión: si API-Football discontinúa el free tier, cambia su cobertura de Argentina, o si el volumen de requests necesario supera el free tier de forma sostenida.
+
+## Corrección post-verificación (2026-09-19, Fase 2)
+
+La investigación inicial (fork de research) reportó **league ID 44** para Liga Profesional Argentina en API-Football. Al verificar contra la API real con una cuenta activa, se confirmó que **ID 44 es "FA WSL" (Inglaterra, fútbol femenino)** — un dato incorrecto de la investigación previa. Se hizo `GET /leagues?country=Argentina` contra la API real y se confirmó el ID correcto:
+
+**League ID correcto: 128 — "Liga Profesional Argentina".** Temporada vigente al 2026-09-19: `season=2026` (2026-01-22 a 2026-11-08), con cobertura confirmada de fixtures/eventos/alineaciones/estadísticas y odds; lesiones sin cobertura confirmada para la temporada 2026 (sí la tuvo 2025 — monitorear si mejora).
+
+Lección aplicada: ningún ID/endpoint reportado por investigación web se usa en código sin verificarse primero contra una llamada real a la API (ver `backend/app/external/api_football.py` y su test de smoke). Este es exactamente el tipo de error que ADR-0007/CLAUDE.md buscan prevenir mediante verificación, no confianza ciega en fuentes de segunda mano.
+
+## Hallazgo crítico: el plan Free NO cubre la temporada en curso (2026-09-19)
+
+Al probar `GET /fixtures?league=128&season=2026` (y `season=2025`) con la cuenta Free real, la API devuelve explícitamente: `"Free plans do not have access to this season, try from 2022 to 2024."` — verificado con las 4 temporadas: **2022 ✅, 2023 ✅, 2024 ✅, 2025 ❌, 2026 (actual) ❌**. No es un límite de requests/día — es una restricción dura por plan, independiente de cuántos requests queden disponibles.
+
+**Implicancia directa para el roadmap:**
+- Las Fases 2-6 (ingesta histórica, features, baselines, backtesting/calibración) son **totalmente viables con el plan Free**, y de hecho mejor de lo esperado: 3 temporadas completas (2022-2024) con eventos/alineaciones/estadísticas, a costo $0.
+- La Fase 7 (automatización T-72/T-24/T-2 sobre partidos reales de la temporada 2026) **no es viable con el plan Free bajo ninguna circunstancia** — no es cuestión de esperar a acumular más requests, hay que pasar a un plan pago antes de llegar a esa fase.
+- No se confirmó documentalmente (el sitio de API-Football bloquea scraping/fetch automatizado con 403) si el plan Pro ($19/mes) desbloquea la temporada actual o si hace falta un tier superior — **se debe verificar esto empíricamente contratando el plan más barato una vez que el proyecto llegue a Fase 7**, no antes, y no asumirlo de la documentación de marketing.
+
+Esto se comunicó al usuario como un hallazgo temprano (no bloquea Fase 2, sí es una decisión de gasto pendiente para cuando el roadmap llegue a Fase 7).
 
 ## Fuentes
 

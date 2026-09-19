@@ -28,6 +28,7 @@ class Competition(Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     name: Mapped[str] = mapped_column(String, nullable=False)
     country: Mapped[str | None] = mapped_column(String)
+    api_football_id: Mapped[int | None] = mapped_column(unique=True)
     external_ids: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -58,6 +59,7 @@ class Team(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     short_name: Mapped[str | None] = mapped_column(String)
     country: Mapped[str | None] = mapped_column(String)
+    api_football_id: Mapped[int | None] = mapped_column(unique=True)
     external_ids: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -74,8 +76,9 @@ class Match(Base):
     away_team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id"), nullable=False)
     kickoff_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     venue: Mapped[str | None] = mapped_column(String)
-    matchday: Mapped[int | None] = mapped_column()
+    matchday: Mapped[str | None] = mapped_column(String)  # ej. "2nd Phase - 1" (Liga Profesional usa fases, no solo fechas numéricas)
     status: Mapped[str] = mapped_column(String, nullable=False, default="scheduled")
+    api_football_id: Mapped[int | None] = mapped_column(unique=True)
     external_ids: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

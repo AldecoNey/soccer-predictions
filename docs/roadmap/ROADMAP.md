@@ -21,8 +21,9 @@ Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y crite
 - **Tests:** test de conexión a BD, lint/format configurado (ruff/black), CI verde en GitHub Actions.
 - **Criterio de finalización:** un `git push` dispara CI, y un workflow programado corre exitosamente al menos una vez.
 
-## Fase 2 — Pipeline de ingesta de datos
+## Fase 2 — Pipeline de ingesta de datos ✅ COMPLETADA (2026-09-19)
 
+- **Resultado:** conector a API-Football (`backend/app/external/api_football.py`) + pipeline idempotente (`backend/pipelines/ingest_historical_fixtures.py`) corrido contra las 3 temporadas disponibles en el plan Free (2022-2024, ver ADR-0003 — 2025/2026 están bloqueadas por el proveedor a nivel de plan). Resultado en Neon: 1 competición, 3 temporadas, 32 equipos, 1337 partidos, 1337 resultados. Verificado: cero duplicados al re-ingerir (upsert por `api_football_id`), distribución de resultados plausible (43.8% local / 24.4% visitante / 31.8% empate). No se usó el dataset `rhinoah/futbol-argentino-data` como bootstrap adicional porque API-Football ya cubrió 3 temporadas completas por sí sola — se deja como fuente de respaldo si hace falta más histórico.
 - **Objetivo:** traer fixtures, resultados y equipos reales de Liga Profesional Argentina a la BD.
 - **Tareas:** conector a API-Football, mapeo de `external_ids`, carga de `competitions`/`seasons`/`teams`/`matches`, importación del dataset histórico `rhinoah/futbol-argentino-data` para bootstrap, validación cruzada entre ambas fuentes.
 - **Agente responsable:** Data & Backend Platform Agent. Revisión: QA & Data Integrity Agent.
