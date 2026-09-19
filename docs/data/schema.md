@@ -61,6 +61,10 @@ Cuotas externas, solo benchmark (Sección 8 del brief — nunca feature del mode
 ### `evaluation_metrics`
 Resultado de una corrida de evaluación (versionada, nunca sobreescrita). `id`, `model_version_id`, `evaluation_run_at`, `horizon`, `segment` (ej. `home`, `away`, `competition=44`, `confidence_band=0.6-0.7`), `log_loss`, `brier_score`, `ece`, `accuracy`, `n_samples`, `compared_against` (baseline_naive/baseline_strength/bookmaker/previous_production_model).
 
+## Compatibilidad con la visión evolutiva (ADR-0009)
+
+Verificado explícitamente: el esquema actual no necesita romperse para soportar Champion/Challenger y ensembles a futuro. `model_versions.status` (`candidate`/`production`/`retired`) ya es la semántica de Champion (`production`) vs. Challengers (`candidate`); un rollback es simplemente reasignar `status='production'` a un `model_versions.id` anterior, sin reentrenar. Cuando se implemente el ensemble/meta-modelo (fuera del alcance de V1), se espera agregar campos como `parent_version_id` (linaje de challengers) y una tabla `ensemble_weights` — no se agregan ahora porque nada los usaría todavía.
+
 ## Notas de diseño
 
 - **Por qué no hay tabla `odds` como input del modelo:** decisión explícita (ADR-0003, Sección 8 del brief) — `bookmaker_snapshots` existe solo para comparación externa, ningún proceso de features debe leerla como input de entrenamiento sin un ADR nuevo que apruebe ese cambio de metodología.

@@ -35,6 +35,10 @@ Equipo final: **1 orquestador + 6 agentes especializados** (bajado de 10+1):
 
 (Nota: 7 especialistas, no 6 — al escribir la fusión resultaron 7 roles finales tras separar correctamente Evaluation de Modeling. Sigue siendo una reducción significativa desde los 10 originales.)
 
+## Nota de evolución futura (ADR-0009)
+
+Este equipo de 7 especialistas cubre las capas 1-4, 6 y 9 de la arquitectura evolutiva descrita en ADR-0009 (adquisición, features, modelos, calibración, evaluación, monitorización), más QA como función transversal. Las capas 5 (ensemble/meta-modelo), 7 (experimentación/research) y 10 (aprendizaje continuo automatizado) todavía no tienen agente dedicado — se evalúa agregarlos (o fusionarlos con los existentes, siguiendo el mismo criterio de minimización de esta ADR) recién cuando el roadmap llegue a esa etapa, no antes.
+
 ## Consecuencias
 
 - Positivas: menos fronteras de coordinación, menos overhead de "traducir" contexto entre agentes, más fácil de mantener para un product owner de nivel técnico básico.

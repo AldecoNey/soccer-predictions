@@ -23,6 +23,10 @@ Orden de experimentación obligatorio (no se puede saltar etapas):
 
 **Explícitamente descartado para V1:** deep learning (redes neuronales). No hay evidencia de que aporten ventaja sobre Poisson/Dixon-Coles o GBMs bien calibrados en datasets del tamaño de una sola liga, y su interpretabilidad y costo operacional son peores.
 
+## Nota de evolución futura (ADR-0009)
+
+Este orden de complejidad (naive → Elo → Poisson/Dixon-Coles → logística → GBM → ensemble) es el camino de la V1, no el techo del proyecto. ADR-0009 formaliza la visión de largo plazo (más familias de modelos, meta-modelo/ensemble con gating dinámico, Champion/Challenger, aprendizaje continuo) — sin autorizar construir nada de eso antes de agotar y evaluar rigurosamente cada paso de esta lista primero.
+
 ## Consecuencias
 
 - Positivas: cada incremento de complejidad debe justificarse con evidencia, evitando sobreajuste y facilitando explicar el sistema al usuario.

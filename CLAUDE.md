@@ -23,9 +23,9 @@ Solo Primera División Argentina (Liga Profesional). No agregar otras competicio
 1. **Control temporal / anti-leakage (ADR-0007):** ninguna predicción de horizonte T-72/T-24/T-2 puede usar datos con timestamp posterior a ese horizonte. Todo pipeline de entrenamiento/backtest usa validación temporal (walk-forward), nunca random split.
 2. **Snapshots inmutables (ADR-0008):** `predictions` es append-only. Nunca se hace `UPDATE` sobre una predicción ya emitida ni se borra un error histórico para mejorar métricas.
 3. **Probabilidades 1-X-2 internas siempre se conservan** (Sección 5 del brief), aunque la interfaz pública muestre la normalización sin empate.
-4. **Bookmaker odds = solo benchmark**, nunca feature del modelo de producción, sin un ADR nuevo aprobado explícitamente por el usuario (ADR-0003).
+4. **Bookmaker odds = solo benchmark**, nunca feature del modelo de producción, sin un ADR nuevo aprobado explícitamente por el usuario (ADR-0003). **Lo mismo aplica a predicciones de terceros** (incluido el endpoint `predictions` que expone API-Football): nunca sustituyen al motor propio ni se usan como feature de entrenamiento, salvo experimento de benchmarking explícito (ADR-0009).
 5. **Evaluation & Calibration es independiente de Modeling** (ADR-0005): ningún modelo se autoevalúa ni se autopromueve a producción.
-6. **Orden de complejidad de modelado obligatorio** (ADR-0006): no saltar a GBM/ensembles sin haber probado y superado los baselines simples primero.
+6. **Orden de complejidad de modelado obligatorio** (ADR-0006): no saltar a GBM/ensembles sin haber probado y superado los baselines simples primero. Los baselines de la Fase 4 NO son el motor final — son el punto de partida de una arquitectura evolutiva hacia ensembles/meta-modelo y un esquema Champion/Challenger con aprendizaje continuo controlado (ver visión completa en ADR-0009). Esa visión no autoriza construir nada de eso antes de que el roadmap llegue a esa etapa — solo restringe cómo se diseña lo que sí se construye ahora, para no tener que reconstruirlo después.
 7. **Presupuesto máximo: USD 30/mes** combinando datos + hosting (ver ADR-0002, ADR-0003). Cualquier gasto nuevo o upgrade de plan pago requiere aprobación explícita del usuario antes de contratarse.
 
 ## Cómo trabajar
