@@ -59,6 +59,12 @@ Siguiendo la opción 1 de "Próximos pasos", se corrió `backend/pipelines/tune_
 
 **Próximo paso natural:** cuando haya más temporadas disponibles (temporada 2025 si se resuelve el acceso vía plan pago — ver ADR-0003 — o al incorporar Copa Argentina/otras competiciones), repetir esta validación con un fold de test adicional antes de considerar la promoción. Por ahora, se recomienda avanzar a Fase 6 (features contextuales) en paralelo, ya que más señal es más prometedor que seguir extrayendo jugo de un ajuste de 2 hiperparámetros sobre 3 temporadas.
 
+## Nota de investigación abierta: ¿es real el home_advantage=120?
+
+Observación del usuario (2026-09-19), registrada para no perderla: que `home_advantage=120` haya ganado por sobre el prior inicial de 60 no significa necesariamente que la ventaja de localía en Liga Profesional Argentina sea así de grande — abre una pregunta de investigación legítima: **¿ese valor es estable entre temporadas, o el optimizador está usando un único parámetro global para compensar otros efectos que el modelo todavía no captura** (equipos ascendidos sin rating confiable, cambios de entrenador, viajes, etc.)?
+
+Esto conecta directamente con la Sección 12 del brief original ("Localía: modelar home advantage y verificar si cambia por liga, por club, o temporalmente — no asumir que es constante"). **No se investiga ahora** (fuera del alcance de Fase 6), pero queda como candidato concreto para una fase futura de refinamiento de baselines: probar `home_advantage` dependiente de equipo o de temporada en vez de un único escalar global, y verificar mediante backtesting si esa heterogeneidad aporta señal real o es solo ruido de una muestra chica (3 temporadas).
+
 ## Fuentes
 
 Resultado generado por `backend/pipelines/evaluate_baselines.py` y `backend/pipelines/tune_elo.py` corridos contra Neon el 2026-09-19, persistido en `evaluation_metrics` y `model_versions`.
