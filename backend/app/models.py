@@ -1,7 +1,7 @@
-"""Modelos SQLAlchemy para las tablas núcleo necesarias en Fase 2.
+"""Modelos SQLAlchemy para las tablas núcleo necesarias en Fases 2-3.
 
-Solo cubre competitions/seasons/teams/matches/results (ver docs/roadmap/ROADMAP.md
-Fase 2). El resto del esquema de docs/data/schema.md (player_availability,
+Cubre competitions/seasons/teams/matches/results (Fase 2) y feature_snapshots
+(Fase 3). El resto del esquema de docs/data/schema.md (player_availability,
 news_signals, model_versions, predictions, etc.) se agrega en las fases que
 realmente las necesitan, no de antemano.
 """
@@ -111,3 +111,27 @@ class Result(Base):
         CheckConstraint(f"outcome IN {MATCH_OUTCOMES}", name="ck_results_outcome"),
         CheckConstraint("home_score >= 0 AND away_score >= 0", name="ck_results_nonnegative_scores"),
     )
+
+
+HORIZONS = ("T-72", "T-24", "T-2")
+
+
+class FeatureSnapshot(Base):
+    """Valores de features congelados para una predicción específica (ADR-0007).
+
+    Igual que `predictions` (ADR-0008): nunca se hace UPDATE sobre una fila
+    existente. Si el cálculo de features cambia, se genera una fila nueva con
+    otro `dataset_version`/`generated_at` — la anterior se conserva intacta.
+    """
+
+    __tablename__ = "feature_snapshots"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    match_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matches.id"), nullable=False)
+    horizon: Mapped[str] = mapped_column(String, nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    features: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    dataset_version: Mapped[str] = mapped_column(String, nullable=False, default="v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (CheckConstraint(f"horizon IN {HORIZONS}", name="ck_feature_snapshots_horizon"),)

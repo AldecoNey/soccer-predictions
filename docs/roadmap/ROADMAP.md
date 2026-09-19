@@ -31,8 +31,9 @@ Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y crite
 - **Tests:** tests de datos (Sección 22 del brief): sin duplicados, sin IDs inconsistentes, sin fechas imposibles, sin resultados imposibles (ej. goles negativos).
 - **Criterio de finalización:** cobertura verificada de fixtures y resultados de al menos 2 temporadas completas, sin inconsistencias detectadas por los data tests.
 
-## Fase 3 — Dataset histórico y control anti-leakage
+## Fase 3 — Dataset histórico y control anti-leakage ✅ COMPLETADA (2026-09-19)
 
+- **Resultado:** `app/features.py::build_features(match_id, as_of_timestamp, window)` calcula forma reciente (PJ/G/E/P, goles a favor/en contra, diferencia de gol, puntos por partido, días de descanso) para ambos equipos, usando solo partidos cuyo resultado ya seria conocido en la realidad a `as_of_timestamp` — con un buffer de 3h post-kickoff (`RESULT_KNOWN_BUFFER`) porque el resultado real no existe instantáneamente al pitazo inicial, y sin depender de `Result.finalized_at` (que en los datos ingeridos refleja cuándo cargamos el dato, no cuándo ocurrió el partido). Tabla `feature_snapshots` agregada (append-only, igual criterio que `predictions`). 6 tests anti-leakage (frontera exacta del buffer, exclusión de partidos futuros, exclusión del propio partido, reproducibilidad, tamaño de ventana) — los 6 pasando, más verificación manual contra un partido real de los datos ingeridos.
 - **Objetivo:** construir el dataset de entrenamiento respetando el corte temporal por horizonte (ADR-0007).
 - **Tareas:** implementar el cálculo de features "as of" una fecha (nunca usando datos futuros a esa fecha), implementar `feature_snapshots`, implementar el checklist anti-leakage como tests automatizados.
 - **Agente responsable:** Modeling & Feature Engineering Agent. Revisión: QA & Data Integrity Agent (obligatoria antes de cualquier entrenamiento).
