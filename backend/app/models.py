@@ -164,3 +164,31 @@ class ModelVersion(Base):
         CheckConstraint(f"status IN {MODEL_STATUSES}", name="ck_model_versions_status"),
         UniqueConstraint("name", "version_tag"),
     )
+
+
+class EvaluationMetric(Base):
+    """Resultado de una corrida de evaluación (ADR-0007): versionada, nunca
+    sobreescrita — cada corrida de `pipelines/evaluate_baselines.py` inserta
+    filas nuevas, nunca actualiza una `evaluation_run_at` anterior.
+
+    `segment` es texto libre en vez de columnas separadas por horizon/local-
+    visitante/competición (ej. "fold=2023;split=home") porque el desglose
+    "por horizonte" (docs/data/schema.md) todavía no es informativo: ninguno
+    de los baselines de Fase 4 consume features sensibles a T-72/T-24/T-2
+    (eso empieza en Fase 6). Agregar una columna `horizon` que siempre
+    valdría lo mismo sería una columna sin uso real — se agrega cuando deje
+    de serlo, no antes (mismo criterio que docs/data/schema.md aplica a
+    tablas completas)."""
+
+    __tablename__ = "evaluation_metrics"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    model_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("model_versions.id"), nullable=False)
+    evaluation_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    segment: Mapped[str] = mapped_column(String, nullable=False)
+    log_loss: Mapped[float] = mapped_column(nullable=False)
+    brier_score: Mapped[float] = mapped_column(nullable=False)
+    ece: Mapped[float | None] = mapped_column()
+    accuracy: Mapped[float] = mapped_column(nullable=False)
+    n_samples: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

@@ -54,8 +54,9 @@ Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y crite
 - **Tests:** probabilidades entre 0 y 1, suma exactamente 1 (con tolerancia de punto flotante), reproducibilidad con seed fija.
 - **Criterio de finalización:** los 3 baselines corren de punta a punta sobre el dataset histórico y generan predicciones válidas.
 
-## Fase 5 — Evaluación y calibración
+## Fase 5 — Evaluación y calibración ⚠️ INFRAESTRUCTURA COMPLETA, CRITERIO NO CUMPLIDO (2026-09-19)
 
+- **Resultado:** walk-forward validation (2 folds por temporada, expanding window) implementada y testeada (`backend/pipelines/evaluate_baselines.py`, `backend/app/evaluation.py`, tabla `evaluation_metrics`). Corrida real sobre 756 partidos de evaluación (2023+2024): **ningún baseline supera a naive en log loss** (naive=1.0643, elo=1.0717, poisson_dixon_coles=1.0837 — naive gana en ambos folds por separado). Ver ADR-0010 para el análisis completo y las causas plausibles (hiperparámetros de Elo sin calibrar, equipos ascendidos sin historial, señal débil dentro de una sola temporada). Ningún modelo se promovió a `production` — es el comportamiento correcto de ADR-0007 ante este resultado, no una falla del pipeline. **Decisión pendiente con el usuario** sobre el próximo paso (ver ADR-0010, Sección "Próximos pasos").
 - **Objetivo:** medir rigurosamente los baselines con walk-forward validation (ADR-0007) antes de considerar modelos más complejos.
 - **Agente responsable:** Evaluation & Calibration Agent (independiente del agente que entrenó los modelos).
 - **Entregables:** reporte de log loss, Brier score, calibration curves y ECE por horizonte, para cada baseline.

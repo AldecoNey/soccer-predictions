@@ -59,7 +59,7 @@ Cuotas externas, solo benchmark (Sección 8 del brief — nunca feature del mode
 `id`, `match_id`, `home_score`, `away_score`, `outcome` (home/draw/away), `finalized_at`. Nunca se usa para recalcular una `prediction` ya emitida — solo se compara en la capa de evaluación.
 
 ### `evaluation_metrics`
-Resultado de una corrida de evaluación (versionada, nunca sobreescrita). `id`, `model_version_id`, `evaluation_run_at`, `horizon`, `segment` (ej. `home`, `away`, `competition=44`, `confidence_band=0.6-0.7`), `log_loss`, `brier_score`, `ece`, `accuracy`, `n_samples`, `compared_against` (baseline_naive/baseline_strength/bookmaker/previous_production_model).
+Resultado de una corrida de evaluación (versionada, nunca sobreescrita). `id`, `model_version_id`, `evaluation_run_at`, `segment` (texto libre, ej. `fold=2023`, `fold=2023;split=home`, `confidence_band=0.6-0.7` — sin columna `horizon` separada ni `compared_against`: se agregan cuando dejen de ser prematuros, ver `app/models.py::EvaluationMetric` para el razonamiento completo), `log_loss`, `brier_score`, `ece`, `accuracy`, `n_samples`.
 
 ## Compatibilidad con la visión evolutiva (ADR-0009)
 
