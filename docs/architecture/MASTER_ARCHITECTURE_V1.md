@@ -218,12 +218,15 @@ Ver `docs/roadmap/ROADMAP.md` para el detalle completo de las 11 fases (0-10), c
 
 ## P. Decisiones que requieren la intervención del usuario
 
-Estas son las únicas decisiones que realmente necesitan tu aprobación — todo lo demás ya fue decidido y documentado en los ADRs correspondientes:
+**Resueltas (2026-09-19):**
 
-1. **Aprobar este documento maestro y los ADRs 0001-0008** para empezar la Fase 1 (infraestructura base).
-2. **Repositorio público en GitHub** (ADR-0002): necesario para que GitHub Actions ejecute los schedules gratis. Si preferís que el código sea privado, la alternativa es GitHub Pro (+$4/mes) — decisión de producto/preferencia, no técnica.
-3. **Autorización previa para upgrades pagos** si el free tier de API-Football (100 req/día) resulta insuficiente: el upgrade a Pro cuesta $19/mes y seguiría dentro del presupuesto de $30/mes, pero implica gasto real — ¿autorizás este upgrade de antemano si el sistema lo detecta necesario, o preferís que se te consulte en el momento?
-4. **Cuenta/API key de API-Football**: necesitás crear la cuenta vos mismo (requiere tu email/datos) y proveer la API key como variable de entorno — no la generamos nosotros.
-5. **Nombre del proyecto/dominio** (si se quiere un dominio propio más adelante en vez del subdominio gratuito de Vercel) — esto tiene costo (~$10-15/año) y es una preferencia de producto.
+1. ✅ **Documento maestro y ADRs 0001-0008 aprobados** — se avanza a Fase 1.
+2. ✅ **Repositorio público en GitHub** — confirmado por el usuario. GitHub Actions corre los schedules gratis sin necesidad de GitHub Pro. Nunca se commitean credenciales ni datos sensibles (van en variables de entorno, `.env` gitignored).
+3. ✅ **Upgrades pagos: consultar siempre antes de contratar** — el usuario prefiere aprobar caso por caso, no pre-autorizar. Si el free tier de API-Football (100 req/día) resulta insuficiente, DevOps/MLOps Agent lo detecta y lo escala al usuario antes de contratar el plan Pro ($19/mes) — nunca se contrata automáticamente.
 
-Todo lo demás (stack técnico, esquema de datos, arquitectura de agentes, estrategia de modelado y evaluación, orden de fases) fue decidido como parte de esta responsabilidad de CTO y está documentado y justificado en los ADRs — no requiere tu aprobación técnica línea por línea, pero está abierto a que lo cuestiones si algo no te convence.
+**Pendientes / acción del usuario (no bloquean el inicio de Fase 1):**
+
+4. **Cuenta/API key de API-Football**: el usuario debe crear la cuenta él mismo (requiere su email/datos) y proveer la API key como variable de entorno cuando se llegue a la Fase 2 (pipeline de ingesta) — no la generamos nosotros.
+5. **Nombre del proyecto/dominio propio** (en vez del subdominio gratuito de Vercel): tiene costo (~$10-15/año) y es una preferencia de producto sin urgencia — se puede decidir más adelante, no bloquea ninguna fase.
+
+Todo lo demás (stack técnico, esquema de datos, arquitectura de agentes, estrategia de modelado y evaluación, orden de fases) fue decidido como parte de esta responsabilidad de CTO y está documentado y justificado en los ADRs — no requiere aprobación técnica línea por línea, pero está abierto a que se cuestione si algo no convence.
