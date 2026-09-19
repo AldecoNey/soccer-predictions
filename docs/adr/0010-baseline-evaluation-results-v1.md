@@ -47,6 +47,18 @@ El criterio de finalización de la Fase 5 tal como está escrito en `docs/roadma
 - Positivas: el pipeline de evaluación es honesto y no infla resultados — exactamente el objetivo declarado del producto (Sección 2 del brief: "no quiero porcentajes inventados").
 - Negativas: la Fase 5 se cierra con la infraestructura completa y testeada, pero sin un "ganador" — se necesita una decisión explícita del usuario/CTO sobre cuál de los 3 próximos pasos tomar antes de continuar.
 
+## Actualización (2026-09-19): Elo ajustado sí supera a naive, en un fold
+
+Siguiendo la opción 1 de "Próximos pasos", se corrió `backend/pipelines/tune_elo.py`: búsqueda de `k_factor`/`home_advantage` con separación estricta train=2022 / validation=2023 / test=2024 (el fold de test nunca participó en la selección de hiperparámetros, respetando ADR-0007).
+
+- Mejor combinación en validación: **k=10, home_advantage=120** (log_loss=1.0610 en 2023).
+- Se verificó explícitamente que no era un artefacto de borde de la grilla inicial: se extendió la búsqueda a k∈{1,3,5,8,10} × home_advantage∈{120,150,180,220} y el mínimo se confirma en k=10/home_advantage=120 — valores más bajos de k y más altos de home_advantage empeoran el ajuste, no lo siguen mejorando.
+- **Evaluado en el fold de test real (2024, nunca tocado durante la selección): elo_tuned log_loss=1.0570 vs. naive log_loss=1.0611 en el mismo fold — elo_tuned gana.** Mejora modesta (~0.4% relativo) pero en la dirección esperada, y confirma que el ajuste de rating sí aporta señal (k=10 le gana claramente a k≈1, que sería casi no actualizar ratings — descarta la hipótesis de que la mejora sea solo "naive disfrazado").
+
+**Por qué NO se promueve todavía a `production`:** esta comparación usa un único fold de test (2024) — 2023 quedó consumida como validación para elegir hiperparámetros, así que ya no sirve como evidencia independiente. ADR-0007 exige mejora consistente "a través de múltiples ventanas temporales", y un solo fold no alcanza ese estándar por más que el resultado sea alentador. Se registra como `model_versions` `baseline_elo` `v2`, status=`candidate`.
+
+**Próximo paso natural:** cuando haya más temporadas disponibles (temporada 2025 si se resuelve el acceso vía plan pago — ver ADR-0003 — o al incorporar Copa Argentina/otras competiciones), repetir esta validación con un fold de test adicional antes de considerar la promoción. Por ahora, se recomienda avanzar a Fase 6 (features contextuales) en paralelo, ya que más señal es más prometedor que seguir extrayendo jugo de un ajuste de 2 hiperparámetros sobre 3 temporadas.
+
 ## Fuentes
 
-Resultado generado por `backend/pipelines/evaluate_baselines.py` corrido contra Neon el 2026-09-19, persistido en `evaluation_metrics`.
+Resultado generado por `backend/pipelines/evaluate_baselines.py` y `backend/pipelines/tune_elo.py` corridos contra Neon el 2026-09-19, persistido en `evaluation_metrics` y `model_versions`.
