@@ -11,8 +11,9 @@ Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y crite
 - **Tests:** N/A (fase documental).
 - **Criterio de finalización:** documento maestro aprobado por el usuario; decisiones de la Sección "Decisiones para el usuario" resueltas.
 
-## Fase 1 — Infraestructura base
+## Fase 1 — Infraestructura base ✅ COMPLETADA (2026-09-19)
 
+- **Resultado:** repo público en https://github.com/AldecoNey/soccer-predictions · CI verde (backend+frontend) · workflow programado verificado (`scheduled-hello-world.yml`) · Neon (Postgres 18.6) conectado y verificado vía `backend/scripts/check_db_connection.py` · frontend Next.js desplegado en Vercel (https://frontend-ibbt2pj85-ney22.vercel.app), deploy automático en cada push a `main`, protección SSO por defecto desactivada para que sea público.
 - **Objetivo:** repositorio ejecutable de extremo a extremo aunque no haga nada útil todavía (esqueleto).
 - **Tareas:** estructura de carpetas del código (`backend/`, `frontend/`, `pipelines/`), entorno Python con `pyproject.toml`/`requirements.txt`, `.env.example`, conexión a Neon (Postgres) verificada, proyecto Vercel enlazado, primer workflow de GitHub Actions "hello world" con schedule.
 - **Agente responsable:** Data & Backend Platform Agent + DevOps/MLOps Agent.
