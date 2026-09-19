@@ -21,3 +21,4 @@ Las probabilidades finales siempre provienen de modelos cuantitativos reproducib
 ## Presupuesto
 
 Máximo USD 30/mes combinando datos + hosting. Ver ADR-0002 y ADR-0003 para el desglose actual (~$0/mes en el arranque).
+
