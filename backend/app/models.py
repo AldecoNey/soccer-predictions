@@ -135,3 +135,32 @@ class FeatureSnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (CheckConstraint(f"horizon IN {HORIZONS}", name="ck_feature_snapshots_horizon"),)
+
+
+ALGORITHM_FAMILIES = ("naive", "elo", "poisson_dixon_coles", "logistic", "gbm", "ensemble")
+MODEL_STATUSES = ("candidate", "production", "retired")
+
+
+class ModelVersion(Base):
+    """Ver ADR-0006 (orden de complejidad) y ADR-0005 (Evaluation & Calibration
+    Agent es el único que puede poner status='production' — Modeling nunca se
+    autopromueve)."""
+
+    __tablename__ = "model_versions"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    version_tag: Mapped[str] = mapped_column(String, nullable=False)
+    algorithm_family: Mapped[str] = mapped_column(String, nullable=False)
+    training_dataset_version: Mapped[str] = mapped_column(String, nullable=False)
+    hyperparameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String, nullable=False, default="candidate")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        CheckConstraint(f"algorithm_family IN {ALGORITHM_FAMILIES}", name="ck_model_versions_algorithm_family"),
+        CheckConstraint(f"status IN {MODEL_STATUSES}", name="ck_model_versions_status"),
+        UniqueConstraint("name", "version_tag"),
+    )

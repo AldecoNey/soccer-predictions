@@ -41,8 +41,13 @@ Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y crite
 - **Tests:** model tests (Sección 22): dado un `as_of` timestamp, ningún feature generado tiene un timestamp de dato posterior; test de reproducibilidad (mismo input → mismo output).
 - **Criterio de finalización:** el checklist anti-leakage de ADR-0007 pasa como suite de tests automatizada.
 
-## Fase 4 — Baselines y primer modelo
+## Fase 4 — Baselines y primer modelo ✅ COMPLETADA (2026-09-19)
 
+- **Resultado:** 3 baselines (`app/prediction_models/`) entrenados sobre los 1337 partidos reales (2022-2024) y registrados en `model_versions` como `candidate` (nadie se autopromueve — eso es de Evaluation, Fase 5):
+  - **naive**: p_home=0.438, p_draw=0.318, p_away=0.244 (frecuencia histórica pura).
+  - **elo**: home_advantage=60, K=20, tasa de empate tomada de naive; conversión Elo→1X2 documentada como simplificación de primera iteración.
+  - **poisson_dixon_coles**: ajustado por MLE (L-BFGS-B, determinista), home_advantage=0.298 (≈35% más goles esperados de local), ρ=-0.080 (dentro del rango típico de la literatura), converged=True.
+  - 22 tests (9 nuevos de baselines sobre datos sintéticos + validación inline de 0≤p≤1 y suma=1 sobre 40 partidos reales) — todos pasando. Reproducibilidad verificada sin necesidad de seed (Elo y Poisson-DC son deterministas dado el mismo input).
 - **Objetivo:** Baseline 0, Baseline 1 (Elo) y Baseline 2 (Poisson/Dixon-Coles) entrenados y produciendo P(local)/P(empate)/P(visitante) que suman 1.
 - **Agente responsable:** Modeling & Feature Engineering Agent.
 - **Entregables:** 3 modelos entrenados, versionados en `model_versions`.
