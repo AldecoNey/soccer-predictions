@@ -3,6 +3,9 @@ el rigor de Poisson/Dixon-Coles y la capacidad de incorporar variables
 contextuales (Fase 6, ej. rotation_index) que un modelo puramente de goles
 no captura."""
 
+import base64
+import pickle
+
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -53,3 +56,17 @@ def predict_proba(fitted: dict, x: list[float]) -> tuple[float, float, float]:
     probs = fitted["model"].predict_proba(x_scaled)[0]
     by_class = dict(zip(fitted["model"].classes_, probs, strict=True))
     return validate_probability_triple(by_class.get(0, 0.0), by_class.get(1, 0.0), by_class.get(2, 0.0))
+
+
+def serialize_fitted(fitted: dict) -> str:
+    """Encontrado en revisión (ADR-0018): registrábamos un ModelVersion para
+    cada candidato logístico, pero el scaler/coeficientes ajustados se
+    descartaban al terminar el proceso — un "modelo" que no se podía volver a
+    cargar para inferencia no es honestamente un model_version reproducible.
+    scaler + LogisticRegression son objetos chicos (unos KB); pickle+base64
+    alcanza sin necesitar un artifact store dedicado todavía."""
+    return base64.b64encode(pickle.dumps({"scaler": fitted["scaler"], "model": fitted["model"]})).decode("ascii")
+
+
+def deserialize_fitted(blob: str) -> dict:
+    return pickle.loads(base64.b64decode(blob))

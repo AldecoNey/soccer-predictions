@@ -79,6 +79,7 @@ def main() -> int:
 
         variants = {"logistic_no_rotation": False, "logistic_with_rotation": True}
         all_results: dict[str, list] = {name: [] for name in variants}
+        last_fitted_model: dict[str, dict] = {}  # el modelo del último fold (más datos de train) es el que se serializa
 
         for fold_idx, fold in enumerate(folds, start=1):
             eval_season = fold["eval_season"]
@@ -105,6 +106,7 @@ def main() -> int:
                 metrics = compute_all_metrics(y_eval, y_pred)
                 print(f"{name:24s} n={metrics['n_samples']:4d}  log_loss={metrics['log_loss']:.4f}  brier={metrics['brier_score']:.4f}  acc={metrics['accuracy']:.3f}")
                 all_results[name].append((eval_season.year_label, metrics, y_eval, y_pred))
+                last_fitted_model[name] = model
 
         print("\n=== Comparación agregada (todas las temporadas evaluadas) ===")
         model_versions_created = []
@@ -120,13 +122,22 @@ def main() -> int:
         for name, overall in model_versions_created:
             existing = session.query(ModelVersion).filter_by(name=name, version_tag="v1").one_or_none()
             if existing is None:
+                # Serializa el modelo del último fold (el que usó más datos de
+                # train) — sin esto, el ModelVersion registrado no era
+                # realmente cargable para inferencia después, solo metadata
+                # descriptiva del experimento (encontrado en revisión, ADR-0018).
+                artifact = logistic.serialize_fitted(last_fitted_model[name]) if name in last_fitted_model else None
                 session.add(
                     ModelVersion(
                         name=name,
                         version_tag="v1",
                         algorithm_family="logistic",
                         training_dataset_version="v2",  # incluye 2025/2026 (ver ADR-0003 update)
-                        hyperparameters={"features": logistic.FEATURE_NAMES_WITH_ROTATION if "rotation" in name else logistic.FEATURE_NAMES},
+                        hyperparameters={
+                            "features": logistic.FEATURE_NAMES_WITH_ROTATION if "rotation" in name else logistic.FEATURE_NAMES,
+                            "fitted_artifact_b64": artifact,
+                            "fitted_from_fold": len(folds),
+                        },
                         trained_at=evaluation_run_at,
                         status="candidate",
                         git_sha=get_git_sha(),

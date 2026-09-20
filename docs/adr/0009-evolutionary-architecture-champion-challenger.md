@@ -81,6 +81,11 @@ Combinación: ensembles, stacking, blending, dynamic weighting, mixture-of-exper
 - Negativas: el roadmap de fases posteriores a la 10 sigue sin estar detallado fase por fase (deliberado — se detalla cuando el proyecto llegue ahí, con datos reales para informar las decisiones, no especulativamente ahora).
 - Trigger de revisión: cuando el roadmap agregue una fase concreta de Ensemble/Meta-modelo o de Aprendizaje Continuo, esa fase debe generar sus propios ADRs de diseño detallado, referenciando esta ADR-0009 como marco.
 
+## Addendum (2026-09-20, ADR-0018): dos reglas adicionales para cuando esto se construya
+
+1. **Predicciones usadas como feature de un meta-modelo deben ser out-of-fold.** Nunca entrenar un meta-modelo/ensemble con las predicciones in-sample que otro modelo generó sobre los mismos partidos con los que ese otro modelo fue entrenado — es una forma sutil pero real de leakage (el meta-modelo aprendería a confiar en un modelo base que memorizó esos partidos, no que generaliza).
+2. **Experimentos propuestos por agentes (features, hiperparámetros, arquitecturas) se ejecutan en branches/worktrees aislados.** Ningún agente tiene autorización para observar que un experimento "parece bueno" y reemplazar producción directamente — el esquema Champion/Challenger de esta ADR sigue mandando: recomendación con evidencia, promoción como acción separada y explícita (ver también ADR-0014 sobre esta misma separación sin construir nada todavía).
+
 ## Fuentes
 
-N/A — visión de producto/arquitectura proporcionada directamente por el usuario (2026-09-19), formalizada aquí para que no se pierda entre fases.
+N/A — visión de producto/arquitectura proporcionada directamente por el usuario (2026-09-19), formalizada aquí para que no se pierda entre fases. Addendum del 2026-09-20 a partir de una revisión externa posterior con mérito técnico.

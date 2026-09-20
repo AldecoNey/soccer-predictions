@@ -61,7 +61,7 @@ Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y crite
 - **Agente responsable:** Evaluation & Calibration Agent (independiente del agente que entrenó los modelos).
 - **Entregables:** reporte de log loss, Brier score, calibration curves y ECE por horizonte, para cada baseline.
 - **Tests:** verificación de que la validación es estrictamente temporal (ningún fold usa datos futuros respecto al fold de entrenamiento correspondiente).
-- **Criterio de finalización:** al menos un modelo supera al Baseline 0 de forma estadísticamente consistente en log loss a través de múltiples ventanas temporales.
+- **Criterio de finalización (corregido, ADR-0018):** cada baseline fue evaluado con walk-forward validation real y el resultado quedó documentado honestamente, mejore o no al Baseline 0 — **no** "al menos un modelo debe superar a naive". Exigir una mejora como condición de cierre de fase incentiva seguir intentando hasta encontrar una por azar (metric-shopping vía presión de roadmap, no solo vía elección de métrica). Un resultado negativo bien evaluado es tan válido como uno positivo (ver ADR-0010, donde de hecho ningún baseline sin ajustar superó a naive, y aun así la fase se completó correctamente).
 
 ## Fase 6 — Datos contextuales/cualitativos
 
@@ -69,7 +69,7 @@ Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y crite
 - **Agente responsable:** Football Intelligence Agent (estructuración) + Modeling & Feature Engineering Agent (integración como features).
 - **Entregables:** `player_availability`, `news_signals` poblados; features como `player_availability_score`, `rest_days`, `rotation_index` incorporadas y backtesteadas.
 - **Tests:** cada feature nueva debe demostrar mejora en log loss vía backtesting antes de quedar en el modelo de producción (si no mejora, se documenta y se descarta — Sección 11 del brief sobre H2H aplica al mismo criterio para cualquier feature).
-- **Criterio de finalización:** al menos una señal cualitativa demuestra aporte medible; las que no aportan quedan documentadas como descartadas (no eliminadas del código sin registro, para no repetir el experimento).
+- **Criterio de finalización (corregido, ADR-0018):** cada señal cualitativa candidata fue evaluada rigurosamente (walk-forward, misma metodología que Fase 5) y el resultado quedó documentado — aporte medible o no. **No** "al menos una señal debe demostrar aporte" (mismo riesgo de metric-shopping que en Fase 5). Las que no aportan quedan documentadas como descartadas, no eliminadas del código sin registro, para no repetir el experimento.
 
 ## Fase 7 — Automatización T-72/T-24/T-2
 

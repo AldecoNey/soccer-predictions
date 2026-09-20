@@ -37,6 +37,20 @@ def test_predict_proba_valid_triple():
     assert sum(probs) == 1.0 or abs(sum(probs) - 1.0) < 1e-6
 
 
+def test_serialize_deserialize_roundtrip_gives_identical_predictions():
+    """ADR-0018: un ModelVersion de regresión logística debe ser realmente
+    cargable para inferencia después, no solo metadata descriptiva."""
+    x = np.array([[0.0, 1.0], [2.0, 3.0], [4.0, 5.0], [6.0, 7.0], [1.0, 2.0], [3.0, 4.0]])
+    y = np.array([0, 1, 2, 0, 1, 2])
+    fitted = logistic.fit(x, y)
+
+    blob = logistic.serialize_fitted(fitted)
+    restored = logistic.deserialize_fitted(blob)
+
+    row = [1.0, 1.5]
+    assert logistic.predict_proba(fitted, row) == logistic.predict_proba(restored, row)
+
+
 def test_missing_class_in_training_fold_still_sums_to_one():
     """Si un fold de train nunca tuvo empates, model.classes_ no incluye la
     clase 1 — vectorize()/predict_proba() deben seguir devolviendo un

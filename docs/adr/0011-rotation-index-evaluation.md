@@ -27,6 +27,10 @@ Features estandarizadas (`StandardScaler`, ajustado solo con datos de train) ant
 
 **Nota metodológica importante (corregida tras segunda revisión, 2026-09-20):** este experimento NO es un backtest comparable a los de ADR-0010 — es un **experimento oracle/diagnóstico**. `rotation_index` usa la alineación REAL del propio partido evaluado, algo que no existe en T-72/T-24 y que en T-2 tampoco existe "tal cual" sin trabajo adicional. Mide únicamente si esta clase de señal tiene poder predictivo en principio, nunca reporta un número comparable al de un modelo desplegable. No se asume ninguna constante de "minutos antes del kickoff" para cuándo se confirman las alineaciones — eso varía por liga/proveedor y, si se construye una versión real para Fase 7, se mide con un `observed_at` real, no se supone. (Versión anterior de esta nota asumía "~20 minutos" citando una observación del usuario como si fuera un dato medido — era una entrada válida para abrir la pregunta, no una fuente para codificar como constante.)
 
+## Caveat metodológico adicional (3ra revisión, ADR-0018)
+
+`logistic.vectorize()` usa `_safe(rotation.get("home"), default=0.0)` — si `rotation_index()` devuelve `None` (alineación insuficiente del partido actual o del anterior), ese `None` se convierte en `0.0`, el mismo valor que "rotación real cero" (once idéntico al partido anterior). Son dos cosas distintas ("no sé" vs. "no hubo cambios") que este experimento no distingue. No se repitió el experimento con una muestra estrictamente filtrada (ambos equipos con lineup completa del partido actual y el anterior) porque los folds ya completados al momento de este caveat no mostraban una mejora que estuviera en duda por este motivo — si el resultado final hubiera sido ambiguo, este habría sido el primer paso antes de sacar una conclusión.
+
 ## Resultado
 
 _Pendiente — completar con la salida real de `pipelines/train_logistic.py` una vez termine. No completar con números aproximados o "esperados"._
