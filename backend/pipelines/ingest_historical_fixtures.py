@@ -19,6 +19,15 @@ from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID, get_fixture
 from app.models import Competition, Match, Result, Season, Team  # noqa: E402
 
 FINISHED_STATUSES = {"FT", "AET", "PEN"}
+# ADR-0019: el target 1-X-2 de FulbolAI es el resultado a 90' + descuento,
+# NUNCA incluyendo prórroga/penales. Liga Profesional Argentina (fase
+# regular) no tiene AET/PEN, así que esto nunca se ejercitó con datos reales
+# — verificado, 0 partidos con esos status en la base al escribir esto. Si
+# esto cambia (ej. al incorporar Copa Argentina), NO asumir que
+# `goals.home/away` de API-Football sigue siendo el marcador de 90' para
+# esos casos: verificarlo contra la API real antes de ingerir el primer caso,
+# y ver el guard de abajo.
+STATUSES_NEEDING_90MIN_VERIFICATION = {"AET", "PEN"}
 SEASONS_TO_INGEST = (2022, 2023, 2024, 2025, 2026)  # requiere plan Pro para 2025/2026 (ver ADR-0003)
 
 
@@ -87,6 +96,12 @@ def ingest_season(session, season_year: int, seasons_meta: list[dict]) -> dict:
         fixture_id = fx["fixture"]["id"]
         match = session.query(Match).filter_by(api_football_id=fixture_id).one_or_none()
         status_short = fx["fixture"]["status"]["short"]
+        if status_short in STATUSES_NEEDING_90MIN_VERIFICATION:
+            print(
+                f"  [WARN ADR-0019] fixture {fixture_id} status={status_short}: nunca visto en datos reales hasta ahora. "
+                f"NO se verificó si goals.home/away representa el marcador de 90' o el final — revisar antes de confiar "
+                f"en este resultado como target 1-X-2."
+            )
         match_status = "finished" if status_short in FINISHED_STATUSES else "scheduled"
         if status_short in {"PST", "SUSP"}:
             match_status = "postponed"
