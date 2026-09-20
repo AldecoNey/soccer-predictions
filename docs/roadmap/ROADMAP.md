@@ -2,10 +2,10 @@
 
 Cada fase tiene objetivo, tareas, agente responsable, entregables, tests y criterio de finalización. No se avanza a la fase siguiente si el criterio de finalización de la actual no se cumple (Sección 31 del brief). Progreso real se rastrea en las tasks de cada sesión de trabajo, no en este documento — este roadmap es el plan, no el estado.
 
-## Fase 0 — Investigación y decisiones (EN CURSO)
+## Fase 0 — Investigación y decisiones ✅ COMPLETADA (2026-09-19)
 
 - **Objetivo:** cerrar las decisiones de arquitectura antes de escribir código de producto.
-- **Tareas:** investigación de fuentes de datos (hecho, ADR-0003), investigación de hosting (hecho, ADR-0002), verificar cobertura real de The Odds API para Liga Profesional Argentina (pendiente), confirmar límites reales de API-Football con una cuenta de prueba.
+- **Resultado:** documento maestro aprobado, ADRs 0001-0008 aceptados, límites reales de API-Football confirmados con cuenta real (no cuenta de prueba — ver ADR-0003, incluye el upgrade a Pro posterior). Único punto que sigue realmente pendiente, sin bloquear nada: cobertura de The Odds API para Liga Profesional Argentina (ver `docs/data/schema.md`, `bookmaker_snapshots` sigue sin construirse).
 - **Agente responsable:** Orquestador + Data & Backend Platform Agent.
 - **Entregables:** este documento, ADRs 0001-0008, `CLAUDE.md`, `.claude/agents/*.md`.
 - **Tests:** N/A (fase documental).
