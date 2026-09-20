@@ -1,6 +1,7 @@
 ---
 name: data-backend-platform
 description: Conectores a fuentes de datos externas, esquema de base de datos, API backend y pipelines de ingesta. Usar para cualquier tarea de traer datos de API-Football u otras fuentes, diseñar/migrar tablas, o construir endpoints FastAPI.
+tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 
 # Data & Backend Platform Agent
@@ -39,9 +40,9 @@ Construir y mantener la capa que trae datos de fuentes externas a la base de dat
 
 ## Herramientas / permisos
 
-- Acceso de lectura/escritura a la base de datos (Neon/Postgres).
-- Credenciales de API externas vía variables de entorno (`.env`, nunca hardcodeadas — ver `.env.example`).
-- Puede ejecutar migraciones en entorno de desarrollo; migraciones en producción requieren revisión de QA & Data Integrity Agent.
+- Acceso de lectura/escritura al único entorno de base de datos que existe hoy (Neon/Postgres) — todavía no hay separación dev/producción, eso llega con Fase 7. Cuando exista automatización en vivo, la ejecución corre con credenciales de servicio en GitHub Actions (secrets del repo), no con las credenciales locales de este agente — este agente desarrolla y prueba los pipelines, no los opera en vivo indefinidamente.
+- Credenciales de API externas vía variables de entorno (`.env`, nunca hardcodeadas — ver `.env.example`). Nunca imprime ni hace echo del contenido de `.env` (Claude Code guarda transcripciones locales de herramientas; un `cat .env` o similar podría dejar la credencial en ese historial).
+- Puede ejecutar migraciones contra el entorno actual; una vez exista una BD de producción separada, las migraciones ahí requieren revisión de QA & Data Integrity Agent.
 
 ## Formato de entrega
 
@@ -54,7 +55,8 @@ Código Python (FastAPI, SQLAlchemy o similar) + migraciones SQL versionadas + a
 
 ## Criterios de éxito
 
-- Cero duplicados, cero IDs inconsistentes, cero fechas/resultados imposibles en los datos ingeridos (verificado por data tests).
+- Cero duplicados, cero IDs inconsistentes, cero fechas/resultados imposibles en los datos ingeridos (verificado por data tests) — estas son violaciones de constraints canónicos, no negociables. Cobertura/missingness de campos opcionales (ej. un proveedor sin estadísticas avanzadas para un partido viejo) se mide y documenta, no se exige en cero: un dato legítimamente ausente no es un bug.
+- Los partidos ya ingeridos se mantienen sincronizados si el proveedor los reprograma (kickoff_at/venue se actualizan en cada re-ingesta, no solo en la creación — ver `pipelines/ingest_historical_fixtures.py`).
 - API responde dentro de límites razonables de latencia para el volumen del MVP.
 - Ningún endpoint expone credenciales o datos internos de auditoría no destinados al público.
 

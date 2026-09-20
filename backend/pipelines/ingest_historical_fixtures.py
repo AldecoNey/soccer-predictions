@@ -109,6 +109,15 @@ def ingest_season(session, season_year: int, seasons_meta: list[dict]) -> dict:
             session.flush()
             stats["matches_created"] += 1
         else:
+            # Reescribe también kickoff_at/venue: los fixtures se reprograman
+            # con cierta frecuencia (lluvia, TV, seguridad). Antes de este fix,
+            # una reprogramación posterior a la primera ingesta quedaba
+            # silenciosamente desactualizada — corrompiendo el cálculo de
+            # horizontes T-72/T-24/T-2 y el corte anti-leakage, que dependen
+            # de kickoff_at (encontrado en revisión de Fase 6, no en producción).
+            match.kickoff_at = datetime.fromisoformat(fx["fixture"]["date"])
+            match.venue = (fx["fixture"]["venue"] or {}).get("name")
+            match.matchday = fx["league"].get("round")
             match.status = match_status
             stats["matches_updated"] += 1
 

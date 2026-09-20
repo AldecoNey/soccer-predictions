@@ -1,6 +1,6 @@
 # ADR-0002 — Stack de hosting e infraestructura MVP
 
-**Estado:** Aceptada (revisar si cambian free tiers)
+**Estado:** Aceptada (revisar si cambian free tiers) — el mecanismo de scheduling de T-72/T-24/T-2 se corrigió en ADR-0012 (dispatcher periódico, no cron de horario exacto); GitHub Actions sigue siendo la elección de hosting/CI/CD descrita acá.
 **Fecha:** 2026-09-19
 **Decide:** CTO/Orquestador (Claude)
 

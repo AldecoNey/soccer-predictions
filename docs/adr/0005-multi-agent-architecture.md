@@ -45,6 +45,10 @@ Este equipo de 7 especialistas cubre las capas 1-4, 6 y 9 de la arquitectura evo
 - Negativas: si el proyecto escala mucho (más ligas, más volumen de datos), Data & Backend Platform podría saturarse y requerir separar de nuevo Data Acquisition — se documenta como trigger de revisión.
 - Trigger de revisión: cuando se agregue la segunda competición (Copa Argentina u otra), reevaluar si Data & Backend Platform sigue siendo manejable como un solo rol.
 
+## Nota de revisión (2026-09-20)
+
+Una revisión externa (ChatGPT, vía el usuario) de los 7 archivos de agentes confirmó mantener los 7 sin agregar ni quitar ninguno — mismo veredicto que esta ADR — pero encontró correcciones reales en varios: separación entre "quién evalúa" y "quién ejecuta la promoción" (Evaluation & Calibration ya no escribe `model_versions.status` directamente), Football Intelligence rediseñado para producir hechos con 5 timestamps distintos en vez de una sola marca `as_of` ambigua (riesgo real de leakage, corregido), scheduling de T-72/T-24/T-2 movido de cron exacto a un dispatcher periódico (ADR-0012), y frontmatter `tools:` agregado a los 7 para principio de mínimo privilegio (confirmado como mecanismo real de Claude Code, no asumido). Se rechazaron partes de la misma revisión por no ajustarse a la escala actual del proyecto (ej. no se abandona el uso de ADRs para documentar resultados de evaluación — a esta escala, con pocos experimentos y sin un model registry propio, es la herramienta correcta que ya tenemos, no burocracia de más).
+
 ## Fuentes
 
 N/A — decisión de diseño organizacional basada en el brief del usuario y análisis de solapamiento de responsabilidades.

@@ -1,6 +1,7 @@
 ---
 name: devops-mlops
 description: Automatización de scheduling (T-72/T-24/T-2), despliegue, logging, monitoreo y alertas. Usar para configurar GitHub Actions, diagnosticar fallas de pipelines programados, o definir alertas de salud del sistema.
+tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 
 # DevOps/MLOps Agent
@@ -11,7 +12,7 @@ Garantizar que el sistema corre solo, de forma confiable y observable: que los 3
 
 ## Responsabilidades
 
-- Configurar y mantener los workflows de GitHub Actions para T-72h, T-24h, T-2h y registro de resultados (ADR-0002).
+- Configurar y mantener un dispatcher periódico (GitHub Actions cada 5 min, ADR-0012) que procesa una tabla de trabajos pendientes (`scheduled_for <= now()`) — **no** 3 cron jobs con horario exacto por partido: GitHub documenta que los workflows programados pueden demorarse o descartarse bajo carga, algo aceptable para CI/reportes pero no como única fuente de verdad de "este partido necesita su T-2 ahora" (ADR-0012). El estado vive en Postgres, no en la precisión del cron — una corrida retrasada o saltada se recupera en la siguiente.
 - Definir logging estructurado en todos los pipelines críticos.
 - Definir y mantener alertas para: API caída, fixture faltante, partido reprogramado, datos desactualizados, predicción no generada, probabilidades inválidas, fuente agotó cuota, fallo de modelo, cambio inesperado en distribución de variables (Sección 23 del brief).
 - Gestionar despliegue de backend (Render) y frontend (Vercel).
@@ -29,7 +30,7 @@ Garantizar que el sistema corre solo, de forma confiable y observable: que los 3
 
 ## Outputs
 
-- Workflows de GitHub Actions funcionando.
+- Dispatcher funcionando (workflow de GitHub Actions + tabla de trabajos pendientes + lógica de lock/idempotencia, ADR-0012).
 - Logs estructurados y alertas configuradas.
 
 ## Herramientas / permisos
@@ -40,7 +41,7 @@ Garantizar que el sistema corre solo, de forma confiable y observable: que los 3
 
 ## Formato de entrega
 
-Archivos de workflow (`.github/workflows/*.yml`) + configuración de logging/alertas documentada.
+Archivos de workflow (`.github/workflows/*.yml`), migraciones/código del dispatcher y su tabla de trabajos, + configuración de logging/alertas documentada.
 
 ## Dependencias
 
