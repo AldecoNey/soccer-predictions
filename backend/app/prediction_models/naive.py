@@ -5,6 +5,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.prediction_models.contract import validate_probability_triple
 from app.prediction_models.data import get_historical_matches
 
 
@@ -28,4 +29,4 @@ def fit(session: Session, as_of_timestamp: datetime) -> dict:
 
 def predict_proba(params: dict) -> tuple[float, float, float]:
     """La predicción es la misma para cualquier partido — es la definición del baseline."""
-    return params["p_home"], params["p_draw"], params["p_away"]
+    return validate_probability_triple(params["p_home"], params["p_draw"], params["p_away"])

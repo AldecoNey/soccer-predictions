@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, ".")
 sys.stdout.reconfigure(line_buffering=True)  # progreso visible en tiempo real, no solo al terminar
 from app.db import SessionLocal  # noqa: E402
-from app.git_info import get_git_sha  # noqa: E402
+from app.git_info import get_git_sha, is_git_dirty  # noqa: E402
 from app.models import ModelVersion  # noqa: E402
 from app.prediction_models import elo, naive, poisson_dixon_coles  # noqa: E402
 from app.prediction_models.data import get_historical_matches  # noqa: E402
@@ -48,6 +48,14 @@ def main() -> int:
 
         # --- Baseline 2: poisson_dixon_coles ---
         pdc_params = poisson_dixon_coles.fit(session, as_of)
+        if not pdc_params["converged"]:
+            # Un optimizador que no convergió produjo parámetros que no son un
+            # mínimo real de la log-verosimilitud — no es un candidato válido,
+            # aunque técnicamente pueda calcular predict_proba() sin explotar.
+            raise RuntimeError(
+                "poisson_dixon_coles no convergió — no se registra como candidato. "
+                "Revisar bounds/inicialización antes de reintentar, no forzar el registro."
+            )
         _validate_predictions("poisson_dixon_coles", poisson_dixon_coles.predict_proba, matches, pdc_params)
         print(f"poisson_dixon_coles: home_advantage={pdc_params['home_advantage']:.3f} rho={pdc_params['rho']:.3f} converged={pdc_params['converged']}")
 
@@ -70,6 +78,7 @@ def main() -> int:
                     trained_at=as_of,
                     status="candidate",
                     git_sha=get_git_sha(),
+                    git_dirty=is_git_dirty(),
                 )
             )
         session.commit()

@@ -7,6 +7,8 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
+from app.prediction_models.contract import validate_probability_triple
+
 FEATURE_NAMES = ["home_ppg", "home_goal_diff", "home_rest_days", "away_ppg", "away_goal_diff", "away_rest_days"]
 FEATURE_NAMES_WITH_ROTATION = [*FEATURE_NAMES, "home_rotation_index", "away_rotation_index"]
 
@@ -50,4 +52,4 @@ def predict_proba(fitted: dict, x: list[float]) -> tuple[float, float, float]:
     x_scaled = fitted["scaler"].transform([x])
     probs = fitted["model"].predict_proba(x_scaled)[0]
     by_class = dict(zip(fitted["model"].classes_, probs, strict=True))
-    return by_class.get(0, 0.0), by_class.get(1, 0.0), by_class.get(2, 0.0)
+    return validate_probability_triple(by_class.get(0, 0.0), by_class.get(1, 0.0), by_class.get(2, 0.0))

@@ -129,10 +129,14 @@ def test_window_limits_history_size(db_session):
     assert features["home"]["matches_played"] == 3
 
 
-def test_rest_days_computed_from_most_recent_known_match(db_session):
+def test_rest_days_is_gap_to_target_kickoff_not_to_snapshot(db_session):
+    """rest_days debe medir el descanso HASTA el partido que se predice, no
+    hasta el momento en que se genera el snapshot — bug real encontrado en
+    revisión de Fase 6 (mismo partido, distinto horizonte, daba distinto
+    "descanso" sin que hubiera ocurrido ningún partido nuevo)."""
     target_match, home, _, opponent, base_time = _setup(db_session, n_past_matches=0)
-    as_of = base_time + timedelta(days=50)
-    last_known_kickoff = as_of - RESULT_KNOWN_BUFFER - timedelta(days=10)
+    # target_match.kickoff_at = base_time + 100 días (ver _setup)
+    last_known_kickoff = base_time + timedelta(days=100 - 8)  # 8 días antes del kickoff objetivo
 
     match = Match(
         season_id=target_match.season_id,
@@ -146,5 +150,11 @@ def test_rest_days_computed_from_most_recent_known_match(db_session):
     db_session.add(Result(match_id=match.id, home_score=1, away_score=1, outcome="draw"))
     db_session.flush()
 
-    features = build_features(db_session, target_match.id, as_of)
-    assert features["home"]["rest_days"] == 10
+    as_of_t72 = target_match.kickoff_at - timedelta(hours=72)
+    as_of_t2 = target_match.kickoff_at - timedelta(hours=2)
+
+    features_t72 = build_features(db_session, target_match.id, as_of_t72)
+    features_t2 = build_features(db_session, target_match.id, as_of_t2)
+
+    assert features_t72["home"]["rest_days"] == 8
+    assert features_t2["home"]["rest_days"] == 8  # mismo partido, mismo descanso real — no depende del horizonte

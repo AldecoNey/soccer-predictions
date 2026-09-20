@@ -21,6 +21,7 @@ from scipy.optimize import minimize
 from scipy.stats import poisson as poisson_dist
 from sqlalchemy.orm import Session
 
+from app.prediction_models.contract import validate_probability_triple
 from app.prediction_models.data import get_historical_matches
 
 L2_REGULARIZATION = 0.01
@@ -114,8 +115,18 @@ def predict_proba(
         for y in range(max_goals + 1):
             grid[x, y] = _tau(x, y, lam_h, lam_a, rho) * poisson_dist.pmf(x, lam_h) * poisson_dist.pmf(y, lam_a)
 
-    grid = grid / grid.sum()  # normaliza el residuo de truncar la grilla en max_goals
+    # tau(x,y) puede volverse negativo para combinaciones extremas de
+    # lambda/rho (ver docstring de _tau) — una celda "negativa" de la grilla
+    # no es una probabilidad válida. Clampear a 0 antes de sumar/normalizar es
+    # la mitigación estándar en implementaciones de Dixon-Coles (no oculta el
+    # problema: si esto pasa seguido para un equipo/temporada, es señal de que
+    # los bounds de rho/lambda necesitan revisión, no algo a ignorar).
+    grid = np.clip(grid, 0.0, None)
+    grid_sum = grid.sum()
+    if grid_sum <= 0:
+        raise ValueError(f"Grilla Dixon-Coles degenerada (suma={grid_sum}) para home={home_team_id} away={away_team_id}")
+    grid = grid / grid_sum
     p_home = float(np.tril(grid, k=-1).sum())
     p_draw = float(np.trace(grid))
     p_away = float(np.triu(grid, k=1).sum())
-    return p_home, p_draw, p_away
+    return validate_probability_triple(p_home, p_draw, p_away)

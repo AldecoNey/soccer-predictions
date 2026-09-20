@@ -20,7 +20,7 @@ sys.path.insert(0, ".")
 sys.stdout.reconfigure(line_buffering=True)  # progreso visible en tiempo real, no solo al terminar
 from app.db import SessionLocal  # noqa: E402
 from app.evaluation import compute_all_metrics  # noqa: E402
-from app.git_info import get_git_sha  # noqa: E402
+from app.git_info import get_git_sha, is_git_dirty  # noqa: E402
 from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID  # noqa: E402
 from app.models import Competition, ModelVersion, Season  # noqa: E402
 from app.prediction_models import elo, naive  # noqa: E402
@@ -84,6 +84,7 @@ def main() -> int:
                     trained_at=datetime.now(timezone.utc),
                     status="candidate",  # sigue como candidato: un solo fold de test no alcanza para "mejora consistente" (ADR-0007)
                     git_sha=get_git_sha(),
+                    git_dirty=is_git_dirty(),
                     parent_model_version_id=parent.id if parent else None,
                 )
             )

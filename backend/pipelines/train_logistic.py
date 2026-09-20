@@ -27,7 +27,7 @@ from app.db import SessionLocal, with_retries  # noqa: E402
 from app.evaluation import compute_all_metrics  # noqa: E402
 from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID  # noqa: E402
 from app.features import build_features  # noqa: E402
-from app.git_info import get_git_sha  # noqa: E402
+from app.git_info import get_git_sha, is_git_dirty  # noqa: E402
 from app.features_lineup import rotation_index  # noqa: E402
 from app.models import Competition, ModelVersion, Season  # noqa: E402
 from app.prediction_models import logistic  # noqa: E402
@@ -130,6 +130,7 @@ def main() -> int:
                         trained_at=evaluation_run_at,
                         status="candidate",
                         git_sha=get_git_sha(),
+                        git_dirty=is_git_dirty(),
                     )
                 )
         session.commit()

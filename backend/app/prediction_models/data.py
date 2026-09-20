@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, aliased
 
 from app.features import RESULT_KNOWN_BUFFER
-from app.models import Match, Result, Team
+from app.models import Match, Result, Season, Team
 
 
 @dataclass(frozen=True)
@@ -27,9 +27,19 @@ class HistoricalMatch:
     away_goals: int
 
 
-def get_historical_matches(session: Session, as_of_timestamp: datetime) -> list[HistoricalMatch]:
+def get_historical_matches(
+    session: Session, as_of_timestamp: datetime, competition_id: uuid.UUID | None = None
+) -> list[HistoricalMatch]:
     """Todos los partidos finalizados y ya "conocidos" a as_of_timestamp,
-    en orden cronológico (requerido por Elo, que actualiza secuencialmente)."""
+    en orden cronológico (requerido por Elo, que actualiza secuencialmente).
+
+    `competition_id=None` (default, comportamiento sin cambios) trae partidos
+    de TODAS las competiciones cargadas — hoy solo hay una (Liga Profesional
+    Argentina), así que no cambia nada en la práctica. El parámetro existe
+    para cuando se agregue una segunda competición (Copa Argentina, etc.):
+    sin él, el Elo/Poisson-DC de Primera mezclaría partidos de otra
+    competición en silencio — mismo tipo de bug real que ya se encontró y
+    corrigió en `pipelines/evaluate_baselines.py::get_folds` (ADR-0007)."""
     cutoff = as_of_timestamp - RESULT_KNOWN_BUFFER
     HomeTeam = aliased(Team)
     AwayTeam = aliased(Team)
@@ -41,6 +51,8 @@ def get_historical_matches(session: Session, as_of_timestamp: datetime) -> list[
         .where(Match.kickoff_at <= cutoff, Match.status == "finished")
         .order_by(Match.kickoff_at.asc())
     )
+    if competition_id is not None:
+        stmt = stmt.join(Season, Season.id == Match.season_id).where(Season.competition_id == competition_id)
     rows = session.execute(stmt).all()
     return [
         HistoricalMatch(

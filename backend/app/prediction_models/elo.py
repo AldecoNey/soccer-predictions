@@ -15,6 +15,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.prediction_models.contract import validate_probability_triple
 from app.prediction_models.data import get_historical_matches
 from app.prediction_models.naive import fit as fit_naive
 
@@ -69,4 +70,4 @@ def predict_proba(home_team_id: uuid.UUID, away_team_id: uuid.UUID, params: dict
     p_draw = params["draw_rate"]
     p_home = (1 - p_draw) * expected_home
     p_away = (1 - p_draw) * (1 - expected_home)
-    return p_home, p_draw, p_away
+    return validate_probability_triple(p_home, p_draw, p_away)

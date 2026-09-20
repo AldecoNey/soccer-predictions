@@ -38,7 +38,14 @@ def _team_past_results(session: Session, team_id: uuid.UUID, match_id: uuid.UUID
     return session.execute(stmt).all()
 
 
-def _team_form(session: Session, team_id: uuid.UUID, match_id: uuid.UUID, as_of_timestamp: datetime, window: int) -> dict:
+def _team_form(
+    session: Session,
+    team_id: uuid.UUID,
+    match_id: uuid.UUID,
+    as_of_timestamp: datetime,
+    window: int,
+    target_kickoff_at: datetime,
+) -> dict:
     rows = _team_past_results(session, team_id, match_id, as_of_timestamp, window)
     wins = draws = losses = goals_for = goals_against = 0
     last_kickoff = None
@@ -68,7 +75,16 @@ def _team_form(session: Session, team_id: uuid.UUID, match_id: uuid.UUID, as_of_
         "goals_against": goals_against,
         "goal_difference": goals_for - goals_against,
         "points_per_game": (points / played) if played else None,
-        "rest_days": (as_of_timestamp - last_kickoff).days if last_kickoff else None,
+        # Descanso HASTA el partido que se está prediciendo, no hasta el
+        # snapshot que lo calcula — son cosas distintas. `target_kickoff_at`
+        # es el kickoff del propio partido (ya conocido de antemano, ver
+        # fixtures — no es leakage usarlo) y es un valor FIJO
+        # independientemente del horizonte (T-72/T-24/T-2) del snapshot. Antes
+        # se restaba as_of_timestamp acá, lo que hacía que el mismo partido
+        # tuviera un "descanso" distinto según a cuántas horas del kickoff se
+        # generara el snapshot — no tenía sentido futbolístico (encontrado en
+        # revisión de Fase 6).
+        "rest_days": (target_kickoff_at - last_kickoff).days if last_kickoff else None,
     }
 
 
@@ -88,6 +104,6 @@ def build_features(
         "match_id": str(match_id),
         "as_of": as_of_timestamp.isoformat(),
         "window": window,
-        "home": _team_form(session, match.home_team_id, match_id, as_of_timestamp, window),
-        "away": _team_form(session, match.away_team_id, match_id, as_of_timestamp, window),
+        "home": _team_form(session, match.home_team_id, match_id, as_of_timestamp, window, match.kickoff_at),
+        "away": _team_form(session, match.away_team_id, match_id, as_of_timestamp, window, match.kickoff_at),
     }

@@ -166,6 +166,9 @@ class ModelVersion(Base):
     # código exacto se entrenó esto" y "de qué versión viene" sin necesitar
     # todavía un pipeline de entrenamiento automatizado ni artifacts serializados.
     git_sha: Mapped[str | None] = mapped_column(String)
+    # True si hubo cambios sin commitear al momento de entrenar (ADR-0014):
+    # git_sha solo no basta para reproducibilidad si el working tree estaba sucio.
+    git_dirty: Mapped[bool | None] = mapped_column()
     parent_model_version_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("model_versions.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -236,4 +239,3 @@ class MatchLineup(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (UniqueConstraint("match_id", "team_id", "player_id"),)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
