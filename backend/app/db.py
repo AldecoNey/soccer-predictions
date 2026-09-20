@@ -21,7 +21,21 @@ engine = (
         to_psycopg_url(settings.database_url),
         pool_pre_ping=True,  # Neon puede cerrar conexiones inactivas/reescalar a cero;
         pool_recycle=280,  # sin esto, scripts largos (ej. pipelines/train_logistic.py
-    )  # sobre miles de partidos) mueren con "server closed the connection unexpectedly".
+        # sobre miles de partidos) mueren con "server closed the connection unexpectedly".
+        connect_args={
+            # Sin esto, cuando el proxy de Neon tira la conexión sin mandar
+            # FIN/RST (visto en vivo: pipelines/train_logistic.py colgado 22+
+            # min con CPU en 0, sin ninguna excepción — with_retries() nunca
+            # se activa porque no hay OperationalError que atrapar, el socket
+            # simplemente nunca vuelve de un read()). Los keepalives de TCP
+            # hacen que el SO detecte la conexión muerta y la cierre con error
+            # en vez de bloquear para siempre.
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+        },
+    )
     if settings.database_url
     else None
 )
