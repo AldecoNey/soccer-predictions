@@ -76,7 +76,11 @@ class Match(Base):
     away_team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id"), nullable=False)
     kickoff_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     venue: Mapped[str | None] = mapped_column(String)
-    matchday: Mapped[str | None] = mapped_column(String)  # ej. "2nd Phase - 1" (Liga Profesional usa fases, no solo fechas numéricas)
+    # ej. "2nd Phase - 1" (Liga Profesional usa fases, no solo fechas numéricas).
+    # Nota (ADR-0013): el downgrade de la migración 94407e13dc47 (String -> Integer)
+    # no es realmente reversible una vez que existan valores no numéricos como
+    # este — documentado acá para no asumir que un downgrade siempre es seguro.
+    matchday: Mapped[str | None] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, nullable=False, default="scheduled")
     api_football_id: Mapped[int | None] = mapped_column(unique=True)
     external_ids: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
@@ -142,9 +146,10 @@ MODEL_STATUSES = ("candidate", "production", "retired")
 
 
 class ModelVersion(Base):
-    """Ver ADR-0006 (orden de complejidad) y ADR-0005 (Evaluation & Calibration
-    Agent es el único que puede poner status='production' — Modeling nunca se
-    autopromueve)."""
+    """Ver ADR-0006 (orden de complejidad) y ADR-0005/ADR-0013: Evaluation &
+    Calibration Agent produce la recomendación de promoción, pero es el
+    Orquestador quien ejecuta el cambio de `status` — Modeling nunca se
+    autopromueve, y Evaluation nunca se autoejecuta."""
 
     __tablename__ = "model_versions"
 
@@ -157,6 +162,11 @@ class ModelVersion(Base):
     trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String, nullable=False, default="candidate")
+    # Trazabilidad barata de agregar ya (ADR-0013): permite responder "con qué
+    # código exacto se entrenó esto" y "de qué versión viene" sin necesitar
+    # todavía un pipeline de entrenamiento automatizado ni artifacts serializados.
+    git_sha: Mapped[str | None] = mapped_column(String)
+    parent_model_version_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("model_versions.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (

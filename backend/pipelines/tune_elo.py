@@ -20,6 +20,7 @@ sys.path.insert(0, ".")
 sys.stdout.reconfigure(line_buffering=True)  # progreso visible en tiempo real, no solo al terminar
 from app.db import SessionLocal  # noqa: E402
 from app.evaluation import compute_all_metrics  # noqa: E402
+from app.git_info import get_git_sha  # noqa: E402
 from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID  # noqa: E402
 from app.models import Competition, ModelVersion, Season  # noqa: E402
 from app.prediction_models import elo, naive  # noqa: E402
@@ -72,6 +73,7 @@ def main() -> int:
 
         existing = session.query(ModelVersion).filter_by(name="baseline_elo", version_tag="v2").one_or_none()
         if existing is None:
+            parent = session.query(ModelVersion).filter_by(name="baseline_elo", version_tag="v1").one_or_none()
             session.add(
                 ModelVersion(
                     name="baseline_elo",
@@ -81,6 +83,8 @@ def main() -> int:
                     hyperparameters={**final_params, "tuned_k_factor": best_k, "tuned_home_advantage": best_home_adv, "validation_log_loss": best_val_log_loss},
                     trained_at=datetime.now(timezone.utc),
                     status="candidate",  # sigue como candidato: un solo fold de test no alcanza para "mejora consistente" (ADR-0007)
+                    git_sha=get_git_sha(),
+                    parent_model_version_id=parent.id if parent else None,
                 )
             )
             session.commit()

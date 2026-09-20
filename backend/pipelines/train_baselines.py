@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, ".")
 sys.stdout.reconfigure(line_buffering=True)  # progreso visible en tiempo real, no solo al terminar
 from app.db import SessionLocal  # noqa: E402
+from app.git_info import get_git_sha  # noqa: E402
 from app.models import ModelVersion  # noqa: E402
 from app.prediction_models import elo, naive, poisson_dixon_coles  # noqa: E402
 from app.prediction_models.data import get_historical_matches  # noqa: E402
@@ -68,6 +69,7 @@ def main() -> int:
                     hyperparameters=hyperparameters,
                     trained_at=as_of,
                     status="candidate",
+                    git_sha=get_git_sha(),
                 )
             )
         session.commit()
