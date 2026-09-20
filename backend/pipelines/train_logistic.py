@@ -16,7 +16,8 @@ from datetime import datetime, timedelta, timezone
 import numpy as np
 
 sys.path.insert(0, ".")
-from app.db import SessionLocal  # noqa: E402
+sys.stdout.reconfigure(line_buffering=True)  # progreso visible en tiempo real, no solo al terminar
+from app.db import SessionLocal, with_retries  # noqa: E402
 from app.evaluation import compute_all_metrics  # noqa: E402
 from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID  # noqa: E402
 from app.features import build_features  # noqa: E402
@@ -28,23 +29,37 @@ from pipelines.evaluate_baselines import get_folds, get_season_matches  # noqa: 
 NEAR_KICKOFF_OFFSET = timedelta(hours=2)  # simula un snapshot "T-2" (alineación ya confirmada)
 
 
+COMMIT_EVERY = 100  # corta la transacción periódicamente: una sesión con una
+# transacción de lectura abierta por miles de queries corridas puede sobrevivir
+# a la conexión real (Neon la cierra) sin que pool_pre_ping lo note, porque
+# pre_ping solo valida conexiones AL SACARLAS del pool, no una ya en uso.
+
+
+def _extract_one(session, m, with_rotation: bool):
+    as_of = m.kickoff_at - NEAR_KICKOFF_OFFSET
+    features = build_features(session, m.id, as_of)
+    rotation = None
+    if with_rotation:
+        rotation = {
+            "home": rotation_index(session, m.id, m.home_team_id),
+            "away": rotation_index(session, m.id, m.away_team_id),
+        }
+    return features, rotation
+
+
 def build_dataset(session, matches, with_rotation: bool):
     x, y = [], []
-    for m in matches:
-        as_of = m.kickoff_at - NEAR_KICKOFF_OFFSET
+    for i, m in enumerate(matches, start=1):
         try:
-            features = build_features(session, m.id, as_of)
+            features, rotation = with_retries(session, lambda m=m: _extract_one(session, m, with_rotation))
         except ValueError:
             continue
-        rotation = None
-        if with_rotation:
-            rotation = {
-                "home": rotation_index(session, m.id, m.home_team_id),
-                "away": rotation_index(session, m.id, m.away_team_id),
-            }
         x.append(logistic.vectorize(features, rotation))
         outcome = 0 if m.home_goals > m.away_goals else (2 if m.away_goals > m.home_goals else 1)
         y.append(outcome)
+        if i % COMMIT_EVERY == 0:
+            session.commit()  # no-op sobre datos (solo lecturas) — cierra la transacción actual
+    session.commit()
     return np.array(x), np.array(y)
 
 

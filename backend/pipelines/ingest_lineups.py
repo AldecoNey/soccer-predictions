@@ -10,11 +10,24 @@ import sys
 import time
 
 sys.path.insert(0, ".")
+sys.stdout.reconfigure(line_buffering=True)  # progreso visible en tiempo real, no solo al terminar
 from app.db import SessionLocal  # noqa: E402
 from app.external.api_football import ApiFootballError, get_lineups  # noqa: E402
 from app.models import Match, MatchLineup, Player  # noqa: E402
 
 REQUEST_DELAY_SECONDS = 0.15  # cortesía con el rate limit por minuto, no solo el diario
+
+
+def resolve_team_id(home_team_id, home_api_id, away_team_id, away_api_id, api_team_id):
+    """Función pura (sin sesión de BD) para poder testearla sin fixtures.
+    Nunca asume "si no es local, es visitante" — verifica ambos casos
+    explícitamente y devuelve None si no coincide con ninguno (ADR-0007:
+    nada de inconsistencias silenciosas en los datos)."""
+    if home_api_id == api_team_id:
+        return home_team_id
+    if away_api_id == api_team_id:
+        return away_team_id
+    return None
 
 
 def _get_or_create_player(session, cache: dict, player_id: int, name: str) -> Player:
@@ -59,7 +72,16 @@ def main() -> int:
 
             for team_lineup in lineups:
                 api_team_id = team_lineup["team"]["id"]
-                team_id = match.home_team_id if _team_matches(session, match.home_team_id, api_team_id) else match.away_team_id
+                team_id = resolve_team_id(
+                    match.home_team_id,
+                    _api_id_of(session, match.home_team_id),
+                    match.away_team_id,
+                    _api_id_of(session, match.away_team_id),
+                    api_team_id,
+                )
+                if team_id is None:
+                    print(f"  [WARN] fixture {match.api_football_id}: team api_id {api_team_id} no coincide con home ni away, se omite ese lado")
+                    continue
                 for entry in team_lineup.get("startXI", []):
                     p = entry["player"]
                     player = _get_or_create_player(session, player_cache, p["id"], p["name"])
@@ -79,13 +101,13 @@ def main() -> int:
 _team_external_id_cache: dict = {}
 
 
-def _team_matches(session, team_id, api_team_id) -> bool:
+def _api_id_of(session, team_id):
     if team_id not in _team_external_id_cache:
         from app.models import Team
 
         team = session.get(Team, team_id)
         _team_external_id_cache[team_id] = team.api_football_id
-    return _team_external_id_cache[team_id] == api_team_id
+    return _team_external_id_cache[team_id]
 
 
 if __name__ == "__main__":

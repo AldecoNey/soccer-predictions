@@ -14,11 +14,16 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 
-# Node / Next.js
+# Node / Next.js (ADR-0004: frontend es Next.js, ya en producción — no un placeholder)
 node_modules/
 .next/
 out/
+dist/
+coverage/
 
 # Data (raw/processed data never committed — see docs/adr for rationale)
 /data/raw/

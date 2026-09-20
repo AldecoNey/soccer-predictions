@@ -17,6 +17,7 @@ import sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, ".")
+sys.stdout.reconfigure(line_buffering=True)  # progreso visible en tiempo real, no solo al terminar
 from app.db import SessionLocal  # noqa: E402
 from app.evaluation import compute_all_metrics  # noqa: E402
 from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID  # noqa: E402

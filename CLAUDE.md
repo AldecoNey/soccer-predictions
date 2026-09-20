@@ -20,7 +20,7 @@ Solo Primera División Argentina (Liga Profesional). No agregar otras competicio
 
 ## Reglas estructurales no negociables
 
-1. **Control temporal / anti-leakage (ADR-0007):** ninguna predicción de horizonte T-72/T-24/T-2 puede usar datos con timestamp posterior a ese horizonte. Todo pipeline de entrenamiento/backtest usa validación temporal (walk-forward), nunca random split.
+1. **Control temporal / anti-leakage (ADR-0007):** T-72/T-24/T-2 son etiquetas de horizonte, no timestamps — ningún dato usado en una predicción puede tener timestamp de disponibilidad posterior al `as_of_timestamp` efectivo de ese snapshot (ej. `kickoff_at - 72h`, ver `app/features.py::RESULT_KNOWN_BUFFER` para el caso de resultados de partidos anteriores). Todo pipeline de entrenamiento/backtest usa validación temporal (walk-forward), nunca random split.
 2. **Snapshots inmutables (ADR-0008):** `predictions` es append-only. Nunca se hace `UPDATE` sobre una predicción ya emitida ni se borra un error histórico para mejorar métricas.
 3. **Probabilidades 1-X-2 internas siempre se conservan** (Sección 5 del brief), aunque la interfaz pública muestre la normalización sin empate.
 4. **Bookmaker odds = solo benchmark**, nunca feature del modelo de producción, sin un ADR nuevo aprobado explícitamente por el usuario (ADR-0003). **Lo mismo aplica a predicciones de terceros** (incluido el endpoint `predictions` que expone API-Football): nunca sustituyen al motor propio ni se usan como feature de entrenamiento, salvo experimento de benchmarking explícito (ADR-0009).

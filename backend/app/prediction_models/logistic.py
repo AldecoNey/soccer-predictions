@@ -5,6 +5,7 @@ no captura."""
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 
 FEATURE_NAMES = ["home_ppg", "home_goal_diff", "home_rest_days", "away_ppg", "away_goal_diff", "away_rest_days"]
 FEATURE_NAMES_WITH_ROTATION = [*FEATURE_NAMES, "home_rotation_index", "away_rotation_index"]
@@ -31,13 +32,22 @@ def vectorize(features: dict, rotation: dict | None = None) -> list[float]:
     return vec
 
 
-def fit(x: np.ndarray, y: np.ndarray) -> LogisticRegression:
+def fit(x: np.ndarray, y: np.ndarray) -> dict:
+    """Estandariza features antes de ajustar: sin esto, la regularización L2
+    de LogisticRegression penaliza de forma desigual features con escalas muy
+    distintas (ej. points_per_game ~0-3 vs. goal_difference ~±15), distorsionando
+    el ajuste. El scaler se ajusta SOLO con datos de train (nunca con eval) y
+    se reutiliza tal cual en predict_proba — evita leakage de la distribución
+    del set de evaluación hacia el entrenamiento."""
+    scaler = StandardScaler()
+    x_scaled = scaler.fit_transform(x)
     model = LogisticRegression(max_iter=1000, C=1.0)
-    model.fit(x, y)
-    return model
+    model.fit(x_scaled, y)
+    return {"scaler": scaler, "model": model}
 
 
-def predict_proba(model: LogisticRegression, x: list[float]) -> tuple[float, float, float]:
-    probs = model.predict_proba([x])[0]
-    by_class = dict(zip(model.classes_, probs, strict=True))
+def predict_proba(fitted: dict, x: list[float]) -> tuple[float, float, float]:
+    x_scaled = fitted["scaler"].transform([x])
+    probs = fitted["model"].predict_proba(x_scaled)[0]
+    by_class = dict(zip(fitted["model"].classes_, probs, strict=True))
     return by_class.get(0, 0.0), by_class.get(1, 0.0), by_class.get(2, 0.0)
