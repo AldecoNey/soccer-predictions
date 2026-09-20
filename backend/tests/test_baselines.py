@@ -6,7 +6,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import uuid
+
 from app.prediction_models import elo, naive, poisson_dixon_coles
+from app.prediction_models.poisson_dixon_coles import _tau
 from app.models import Competition, Match, Result, Season, Team
 
 BASE_TIME = datetime(2020, 1, 1, tzinfo=timezone.utc)
@@ -106,7 +109,52 @@ class TestPoissonDixonColes:
     def test_unknown_team_returns_uniform_fallback(self, db_session):
         teams, as_of = _seed_league(db_session)
         params = poisson_dixon_coles.fit(db_session, as_of)
-        import uuid
 
         probs = poisson_dixon_coles.predict_proba(uuid.uuid4(), teams[0].id, params)
         assert probs == (1 / 3, 1 / 3, 1 / 3)
+
+
+class TestDixonColesTauValidity:
+    """Tests adversariales (ADR-0014/0015): tau(x,y) puede volverse negativo
+    para combinaciones de lambda/rho matemáticamente posibles dentro de
+    nuestros propios bounds (rho en [-0.3, 0.3]) — no alcanza con que el
+    dataset sintético "normal" nunca lleve al optimizador ahí por casualidad."""
+
+    def test_tau_can_go_negative_for_valid_bounds(self):
+        """Demuestra el bug documentado: lambda_home=lambda_away=2, rho=0.3
+        (dentro de nuestros bounds) da tau(0,0) negativo. Si esta aserción
+        alguna vez empieza a fallar porque _tau cambió de fórmula, hay que
+        revisar que el resto de esta clase siga siendo relevante."""
+        assert _tau(0, 0, lambda_x=2.0, lambda_y=2.0, rho=0.3) == pytest.approx(-0.2)
+
+    def test_tau_negative_at_other_low_score_cells_too(self):
+        # rho muy negativo también puede tirar tau(0,1)/tau(1,0) por debajo de 0
+        assert _tau(0, 1, lambda_x=10.0, lambda_y=1.0, rho=-0.3) < 0
+        assert _tau(1, 0, lambda_x=1.0, lambda_y=10.0, rho=-0.3) < 0
+
+    def test_predict_proba_stays_valid_despite_negative_tau_cells(self):
+        """El escenario adversarial completo: parámetros que fuerzan tau<0 en
+        la grilla, pero predict_proba() debe devolver igual un triplete válido
+        (clampeado), nunca una probabilidad negativa cruda."""
+        team_a, team_b = str(uuid.uuid4()), str(uuid.uuid4())
+        params = {
+            "team_ids": [team_a, team_b],
+            # attack=[ln(2), ln(2)], defense=[0,0], home_advantage=0
+            # -> lambda_home = lambda_away = 2 para cualquier par de equipos
+            "attack": [0.6931471805599453, 0.6931471805599453],
+            "defense": [0.0, 0.0],
+            "home_advantage": 0.0,
+            "rho": 0.3,  # el peor caso documentado, dentro de nuestros bounds reales
+        }
+        probs = poisson_dixon_coles.predict_proba(team_a, team_b, params)
+        assert all(0.0 <= p <= 1.0 for p in probs)
+        assert sum(probs) == pytest.approx(1.0, abs=1e-6)
+
+    def test_non_convergence_is_reported_honestly(self, db_session):
+        """fit() con un dataset degenerado (0 partidos conocidos) no debe
+        fingir que convergió — converged=False es la señal real que
+        pipelines/train_baselines.py usa para rechazar el candidato en vez
+        de registrarlo igual."""
+        params = poisson_dixon_coles.fit(db_session, BASE_TIME)  # antes de que exista cualquier partido
+        assert params["converged"] is False
+        assert params["n_matches"] == 0

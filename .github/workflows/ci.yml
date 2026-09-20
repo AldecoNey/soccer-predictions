@@ -17,6 +17,27 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Sin esto, los tests que dependen de DATABASE_URL se saltan en silencio
+    # (conftest.py hace pytest.skip si no hay BD) — eso incluye TODOS los
+    # tests de constraints de esquema, anti-leakage y evaluación, la parte
+    # que más importa proteger. CI "verde" sin esto es casi un placebo.
+    # Nunca apunta a Neon: efímera, se destruye al terminar el job.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
     defaults:
       run:
         working-directory: backend
@@ -27,6 +48,8 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - run: ruff check .
+      - run: alembic upgrade head
+      - run: alembic check # falla si models.py y las migraciones quedaron desincronizados
       - run: pytest -q
 
   frontend:

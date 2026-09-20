@@ -8,8 +8,12 @@ def test_valid_triple_passes_through():
 
 
 def test_tiny_negative_rounding_error_is_clamped():
-    # -1e-12 es ruido de punto flotante, no un error real
-    result = validate_probability_triple(0.5000000000001, 0.3, 0.1999999999999)
+    """Bug real encontrado en revisión: la versión anterior de este test no
+    pasaba ningún valor negativo (0.5000000000001 no es negativo) — parecía
+    probar el clamp sin ejercitarlo. -1e-12 sí es negativo de verdad, pero
+    por debajo de TOLERANCE (1e-6): debe clampearse a 0, no rechazarse."""
+    result = validate_probability_triple(0.5, 0.5, -1e-12)
+    assert result == (0.5, 0.5, 0.0)
     assert all(p >= 0.0 for p in result)
 
 

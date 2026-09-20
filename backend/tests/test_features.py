@@ -73,7 +73,9 @@ def test_result_known_buffer_boundary(db_session):
     target_match, home, _, opponent, base_time = _setup(db_session, n_past_matches=0)
     as_of = base_time + timedelta(days=50)
 
-    # Partido que terminó justo en el borde del buffer: debe CONTAR.
+    # Partido cuyo kickoff_at cae justo en el borde del buffer (no sabemos
+    # cuándo "terminó" de verdad — solo inferimos disponibilidad vía
+    # kickoff+3h, ver .claude/rules/temporal-integrity.md): debe CONTAR.
     on_boundary = Match(
         season_id=target_match.season_id,
         home_team_id=home.id,
@@ -81,7 +83,7 @@ def test_result_known_buffer_boundary(db_session):
         kickoff_at=as_of - RESULT_KNOWN_BUFFER,
         status="finished",
     )
-    # Partido que terminó 1 minuto después del borde: NO debe contar todavía.
+    # Partido cuyo kickoff_at cae 1 minuto después del borde: NO debe contar todavía.
     past_boundary = Match(
         season_id=target_match.season_id,
         home_team_id=home.id,
@@ -158,3 +160,19 @@ def test_rest_days_is_gap_to_target_kickoff_not_to_snapshot(db_session):
 
     assert features_t72["home"]["rest_days"] == 8
     assert features_t2["home"]["rest_days"] == 8  # mismo partido, mismo descanso real — no depende del horizonte
+
+
+def test_build_features_never_includes_rotation_data(db_session):
+    """Guarda estructural (ADR-0015): build_features() es LA función segura
+    para T-72/T-24/T-2 (respeta as_of_timestamp estrictamente). rotation_index
+    (app/features_lineup.py) usa la alineación REAL del propio partido y NO
+    es leakage-safe para esos horizontes — si algún día alguien "simplifica"
+    fusionando ambos módulos, este test debe romperse de inmediato."""
+    target_match, *_ = _setup(db_session, n_past_matches=2)
+    as_of = target_match.kickoff_at - timedelta(hours=72)
+
+    features = build_features(db_session, target_match.id, as_of)
+
+    assert "rotation" not in str(features).lower()
+    assert "rotation_index" not in features["home"]
+    assert "rotation_index" not in features["away"]

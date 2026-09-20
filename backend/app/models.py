@@ -114,6 +114,18 @@ class Result(Base):
     __table_args__ = (
         CheckConstraint(f"outcome IN {MATCH_OUTCOMES}", name="ck_results_outcome"),
         CheckConstraint("home_score >= 0 AND away_score >= 0", name="ck_results_nonnegative_scores"),
+        # Encontrado en revisión (ADR-0015): nada impedía antes un estado
+        # imposible como home_score=3, away_score=0, outcome='draw'. El
+        # código de ingesta siempre calculó outcome correctamente (ver
+        # pipelines/ingest_historical_fixtures.py::_outcome), pero la BD por
+        # sí sola no lo garantizaba — un bug en cualquier otro código que
+        # escriba acá habría pasado silencioso.
+        CheckConstraint(
+            "(home_score > away_score AND outcome = 'home') OR "
+            "(away_score > home_score AND outcome = 'away') OR "
+            "(home_score = away_score AND outcome = 'draw')",
+            name="ck_results_outcome_matches_score",
+        ),
     )
 
 
