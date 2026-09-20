@@ -46,3 +46,12 @@ def get_fixtures(season: int, league_id: int = LIGA_PROFESIONAL_ARGENTINA_ID) ->
     """Devuelve todos los fixtures (partidos) de una temporada. Lanza
     ApiFootballError si el plan actual no tiene acceso a esa temporada."""
     return _get("/fixtures", {"league": league_id, "season": season})
+
+
+def get_lineups(fixture_id: int) -> list[dict]:
+    """Alineaciones titulares de un partido (1 request por partido — no hay
+    forma de traer varios partidos en una sola llamada). Devuelve una lista
+    de hasta 2 elementos (uno por equipo), o [] si el proveedor no tiene
+    alineación cargada para ese partido (pasa con partidos muy viejos o
+    de categorías menores)."""
+    return _get("/fixtures/lineups", {"fixture": fixture_id})

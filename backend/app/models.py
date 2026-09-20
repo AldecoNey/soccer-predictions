@@ -192,3 +192,38 @@ class EvaluationMetric(Base):
     accuracy: Mapped[float] = mapped_column(nullable=False)
     n_samples: Mapped[int] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class Player(Base):
+    """Nota (Fase 6, ADR-0003): la fuente de datos NO tiene lesiones
+    históricas para 2022-2024 (verificado con una llamada real, no asumido
+    de la documentación). Sí tiene alineaciones titulares. Por eso esta
+    tabla y `match_lineups` reemplazan, por ahora, a la `player_availability`
+    de docs/data/schema.md (pensada para status de lesión/suspensión) —
+    se agrega esa tabla más adelante si se consigue una fuente que sí la
+    tenga; no se inventa el dato."""
+
+    __tablename__ = "players"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    api_football_id: Mapped[int | None] = mapped_column(unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class MatchLineup(Base):
+    """Un jugador que fue titular (startXI) en un partido, para un equipo.
+    Permite calcular `rotation_index` (Sección 9 del brief) comparando la
+    alineación de un partido contra la anterior del mismo equipo."""
+
+    __tablename__ = "match_lineups"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    match_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matches.id"), nullable=False)
+    team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id"), nullable=False)
+    player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("players.id"), nullable=False)
+    position: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (UniqueConstraint("match_id", "team_id", "player_id"),)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

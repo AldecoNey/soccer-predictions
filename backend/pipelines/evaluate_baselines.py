@@ -76,6 +76,7 @@ def get_season_matches(session, season: Season) -> list[HistoricalMatch]:
     rows = session.execute(stmt).all()
     return [
         HistoricalMatch(
+            id=match.id,
             home_team_id=match.home_team_id,
             away_team_id=match.away_team_id,
             home_team_name="",

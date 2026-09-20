@@ -10,5 +10,13 @@ def to_psycopg_url(database_url: str) -> str:
     return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
 
-engine = create_engine(to_psycopg_url(settings.database_url)) if settings.database_url else None
+engine = (
+    create_engine(
+        to_psycopg_url(settings.database_url),
+        pool_pre_ping=True,  # Neon puede cerrar conexiones inactivas/reescalar a cero;
+        pool_recycle=280,  # sin esto, scripts largos (ej. pipelines/train_logistic.py
+    )  # sobre miles de partidos) mueren con "server closed the connection unexpectedly".
+    if settings.database_url
+    else None
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

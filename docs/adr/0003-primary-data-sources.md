@@ -58,6 +58,14 @@ Al probar `GET /fixtures?league=128&season=2026` (y `season=2025`) con la cuenta
 
 Esto se comunicó al usuario como un hallazgo temprano (no bloquea Fase 2, sí es una decisión de gasto pendiente para cuando el roadmap llegue a Fase 7).
 
+## Actualización (2026-09-19, Fase 6): el usuario contrató el plan Pro — confirmado que SÍ desbloquea la temporada actual
+
+El usuario decidió por su cuenta pagar el plan Pro de API-Football ($19/mes, dentro del presupuesto de $30/mes) para poder avanzar con la Fase 6 sin esperar ~14 días de backfill de alineaciones al ritmo del free tier (100 req/día vs. 7500 req/día en Pro).
+
+Verificado empíricamente (no asumido de la documentación de marketing, que el 403 de scraping nunca permitió confirmar): con el plan Pro activo, `GET /fixtures?league=128&season=2025` y `season=2026` **ya no devuelven el error de plan** — 510 fixtures en 2025, 495 en 2026 (temporada en curso). Esto resuelve la incertidumbre que ADR-0003 dejó abierta sobre si Pro desbloquea la temporada actual: **sí lo hace**. Fecha de vencimiento de la suscripción: 2026-10-20 (mensual, requiere renovación).
+
+Consecuencia práctica: la Fase 7 (automatización T-72/T-24/T-2 sobre partidos reales) ya no está bloqueada por falta de acceso a datos de temporada actual — el bloqueo que quedó documentado arriba ("no es viable con el plan Free bajo ninguna circunstancia") queda resuelto ahora que el plan es Pro. Se aprovecha además para extender el histórico de entrenamiento/evaluación con las temporadas 2025 y 2026 (parcial, solo partidos ya jugados) — más datos para los folds de walk-forward de ADR-0007/ADR-0010, que hasta ahora dependían de una muestra chica de 3 temporadas.
+
 ## Fuentes
 
 - https://www.api-football.com/pricing (consultado 2026-09-19)

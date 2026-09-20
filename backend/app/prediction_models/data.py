@@ -17,6 +17,7 @@ from app.models import Match, Result, Team
 
 @dataclass(frozen=True)
 class HistoricalMatch:
+    id: uuid.UUID
     home_team_id: uuid.UUID
     away_team_id: uuid.UUID
     home_team_name: str
@@ -43,6 +44,7 @@ def get_historical_matches(session: Session, as_of_timestamp: datetime) -> list[
     rows = session.execute(stmt).all()
     return [
         HistoricalMatch(
+            id=match.id,
             home_team_id=match.home_team_id,
             away_team_id=match.away_team_id,
             home_team_name=home_name,

@@ -1,9 +1,12 @@
-"""Fase 2: ingesta histórica de Liga Profesional Argentina (temporadas 2022-2024,
-únicas disponibles en el plan Free de API-Football — ver ADR-0003).
+"""Fase 2 (+ extensión Fase 6, ADR-0003): ingesta de fixtures de Liga
+Profesional Argentina. Originalmente limitada a 2022-2024 (free tier);
+tras el upgrade a Pro (ADR-0003, 2026-09-19) también cubre 2025-2026.
 
 Idempotente: se puede correr varias veces sin duplicar filas (upsert por
 api_football_id). No usa `results` como input de `matches`/features — solo
-las puebla a partir del resultado ya finalizado del proveedor.
+las puebla a partir del resultado ya finalizado del proveedor. Partidos
+de 2026 (temporada en curso) que todavía no se jugaron simplemente quedan
+con status='scheduled' y sin result, hasta la próxima corrida.
 """
 
 import sys
@@ -15,7 +18,7 @@ from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID, get_fixture
 from app.models import Competition, Match, Result, Season, Team  # noqa: E402
 
 FINISHED_STATUSES = {"FT", "AET", "PEN"}
-SEASONS_AVAILABLE_ON_FREE_TIER = (2022, 2023, 2024)
+SEASONS_TO_INGEST = (2022, 2023, 2024, 2025, 2026)  # requiere plan Pro para 2025/2026 (ver ADR-0003)
 
 
 def _outcome(home_goals: int, away_goals: int) -> str:
@@ -131,7 +134,7 @@ def main() -> int:
     try:
         seasons_meta = get_league_seasons()
         totals = {"matches_created": 0, "matches_updated": 0, "results_created": 0}
-        for year in SEASONS_AVAILABLE_ON_FREE_TIER:
+        for year in SEASONS_TO_INGEST:
             print(f"Ingiriendo temporada {year}...")
             stats = ingest_season(session, year, seasons_meta)
             print(f"  {stats}")
