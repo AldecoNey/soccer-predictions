@@ -1,13 +1,19 @@
-"""Fase 6: ¿rotation_index aporta señal real? Se compara, con el mismo
-esquema walk-forward de ADR-0007/ADR-0010, una regresión logística (ADR-0006
-candidato 3) CON y SIN rotation_index — la única forma honesta de saber si
-una feature nueva "sirve" es esta comparación directa, no intuición.
+"""Fase 6: ¿rotation_index tiene algo de poder predictivo en absoluto?
 
-Nota importante: rotation_index usa la alineación REAL del propio partido
-(ver app/features_lineup.py) — válida como señal de investigación/backtesting
-para este análisis, pero solo aplicable en producción al horizonte T-2
-(alineación confirmada), nunca a T-72/T-24. Ese detalle de integración al
-pipeline en vivo se resuelve en Fase 7, no acá.
+Este NO es un backtest comparable a los de ADR-0010 (naive/elo/poisson-dc).
+Es un experimento oracle/diagnóstico: rotation_index usa la alineación REAL
+del propio partido (ver app/features_lineup.py), algo que en T-72/T-24 no
+existe todavía y en T-2 tampoco existe tal cual sin más trabajo (ver nota
+abajo). Sirve únicamente para responder "¿esta clase de señal aporta algo,
+en principio?" — su resultado nunca se reporta como si fuera el de un
+modelo desplegable, y walk-forward por temporada aquí es solo para no
+comparar peras con manzanas entre variantes, no una certificación de que
+esto sea seguro para producción.
+
+Camino a una versión realmente desplegable (Fase 7, no acá): requeriría un
+`observed_at` real de cuándo el sistema efectivamente vio la alineación
+confirmada de cada partido — no una constante de minutos-antes-del-kickoff
+asumida (varía por liga/proveedor y se mide, no se supone).
 """
 
 import sys

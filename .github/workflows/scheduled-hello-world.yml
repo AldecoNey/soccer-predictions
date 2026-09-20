@@ -1,13 +1,28 @@
-# Prueba de concepto del mecanismo de scheduling que usarán los pipelines
-# reales de T-72h/T-24h/T-2h (ver ADR-0002, Fase 7 de docs/roadmap/ROADMAP.md).
-# Este workflow no hace nada de negocio todavía — solo valida que GitHub
-# Actions puede disparar trabajos programados en este repo público sin costo.
+# Smoke test aislado: solo demuestra que GitHub Actions puede disparar
+# workflows programados en este repo público, sin costo. NO es ni será el
+# mecanismo de los pipelines T-72h/T-24h/T-2h — GitHub documenta que los
+# `schedule:` pueden demorarse (o jobs en cola descartarse) bajo carga, algo
+# aceptable para CI/reportes pero no como reloj autoritativo de una
+# predicción sensible al tiempo. Ese scheduling real es un dispatcher
+# periódico (cada 5 min) respaldado por una tabla de trabajos en Postgres —
+# ver ADR-0012. Este workflow puede seguir vivo como smoke test de que el
+# scheduling básico de GitHub sigue andando, o eliminarse una vez verificado.
 name: Scheduled hello world (Phase 1 smoke test)
 
 on:
   schedule:
-    - cron: "0 12 * * *" # todos los días 12:00 UTC — placeholder, se reemplaza en Fase 7
+    # 12:17 UTC, no 12:00 — evitar el minuto exacto de la hora, donde empíricamente
+    # se concentran más workflows y hay más demora (comportamiento reportado por
+    # la comunidad, NO es garantía documentada oficialmente por GitHub — ver
+    # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions,
+    # que solo documenta el mínimo de 5 min entre corridas, nada sobre congestión).
+    - cron: "17 12 * * *"
   workflow_dispatch: {} # permite disparo manual para verificar sin esperar al cron
+  # Nota: GitHub deshabilita automáticamente los workflows `schedule:` en repos
+  # públicos tras 60 días sin actividad (push/release/PR mergeado) — confirmado en
+  # https://docs.github.com/actions/managing-workflow-runs/disabling-and-enabling-a-workflow.
+  # No es un problema hoy (el repo tiene actividad constante), pero si este
+  # smoke test se dejara solo mucho tiempo sin tocar el repo, se apagaría solo.
 
 jobs:
   hello:
