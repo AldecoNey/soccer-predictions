@@ -37,7 +37,15 @@ ReliabilityLevel = Literal["A", "B", "C", "D", "E"]
 class _FactBase(BaseModel):
     """Campos de trazabilidad de fuente comunes a ambos tipos de hecho.
     `raw_quote` es obligatorio y no puede ser vacío — es el rastro de
-    auditoría de todo el hecho, no un campo opcional de conveniencia."""
+    auditoría de todo el hecho, no un campo opcional de conveniencia.
+
+    **`raw_quote` debe ser estrictamente textual, nunca mezclado con
+    razonamiento del agente** (hallazgo de auditoría QA, primera corrida
+    2026-09-21: 2/14 hechos traían una cita real seguida de una nota propia
+    del agente tipo "— nota: no clasifica limpiamente en..."; el dato
+    subyacente era correcto pero contaminaba el campo pensado para ser
+    100% verbatim). Ese tipo de razonamiento sobre ambigüedad de categoría
+    va en `extraction_note`, un campo separado para exactamente eso."""
 
     model_config = ConfigDict(extra="ignore")  # ignora observed_at/available_at si vinieran, y cualquier otra clave inesperada
 
@@ -48,6 +56,7 @@ class _FactBase(BaseModel):
     event_time: datetime | None = None
     published_at: datetime | None = None
     raw_quote: str = Field(min_length=1)
+    extraction_note: str | None = None
 
 
 class PlayerAvailabilityFact(_FactBase):

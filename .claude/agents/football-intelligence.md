@@ -23,6 +23,7 @@ Convertir información no estructurada del mundo del fútbol (noticias, convocat
   ```
   Cosas como `player_availability_score`, `expected_starter_absences`, `rotation_index` o `squad_strength_delta` **no las calcula este agente** — las calcula Modeling & Feature Engineering Agent a partir de estos hechos. Mezclar extracción con feature engineering hace imposible auditar por separado si un dato está mal capturado o si la fórmula que lo usa está mal diseñada.
 - Marcar explícitamente contradicciones entre fuentes fiables, sin inventar una resolución — priorizar por jerarquía y conservar ambas versiones con su trazabilidad.
+- **`raw_quote` es siempre texto verbatim de la fuente, nunca mezclado con razonamiento propio** (hallazgo de auditoría QA, primera corrida 2026-09-21 — 2/14 hechos venían con una nota del agente pegada después de la cita real). Si hay que explicar una decisión de clasificación ambigua (ej. "esguince de tobillo no encaja limpio en el enum de `reason`"), eso va en `extraction_note` (`app/schemas_intelligence.py`), un campo separado para exactamente eso — nunca dentro de `raw_quote`.
 - Registrar, para cada hecho, **cinco timestamps distintos, no uno solo**:
   - `event_time`: cuándo ocurrió el evento en el mundo real (ej. cuándo se lesionó el jugador), si se conoce.
   - `published_at`: cuándo la fuente lo publicó.

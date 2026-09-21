@@ -17,6 +17,14 @@ from pipelines.ingest_intelligence_facts import ingest_facts
 # equipos/fuentes/jugadores por nombre EXACTO — reusar un nombre real
 # (ej. "TyC Sports" si ya existiera) haría que una query por nombre
 # devolviera más de una fila dentro de la transacción de test.
+#
+# Regla derivada (encontrada al agregar este archivo de tests el
+# 2026-09-21, después de la primera ingesta real de 14 filas reales en
+# player_availability): ningún test puede hacer
+# `session.query(PlayerAvailability).one()`/`.count()` sin filtrar por el
+# match_id/source_id que el propio test creó — la tabla ya no está vacía
+# en Neon, tiene datos de producción reales y permanentes. Todo query de
+# assert en este archivo debe estar acotado a lo que el test mismo insertó.
 _RUN_SUFFIX = uuid.uuid4().hex[:8]
 _TEST_SOURCE_NAME = f"Test Wire Service {_RUN_SUFFIX}"
 
@@ -88,12 +96,37 @@ def test_valid_fact_persists_with_observed_at_equal_available_at(db_session):
     assert summary.n_new_players == 1
     assert summary.n_new_sources == 1
 
-    row = db_session.query(PlayerAvailability).one()
+    row = db_session.query(PlayerAvailability).filter_by(match_id=match.id).one()
     assert row.observed_at == now
     assert row.available_at == now
     assert row.ingested_at == now
     assert row.confidence == "B"
     assert row.status == "doubtful"
+
+
+def test_spoofed_observed_at_in_input_json_is_ignored(db_session):
+    """Regla P0 (.claude/agents/football-intelligence.md): observed_at y
+    available_at los estampa el pipeline, nunca el agente. Hasta ahora esa
+    garantía era solo estructural (el schema ni declara esos campos) — este
+    test la deja regression-locked: si algún día alguien le agrega esos
+    campos al schema por error, esto falla en vez de fallar en silencio
+    (hallazgo de auditoría QA, 2026-09-21)."""
+    match, home, _ = _make_match(db_session)
+    now = datetime.now(timezone.utc)
+    spoofed_past = now - timedelta(days=365)
+
+    fact = _player_availability_fact(match.id, home.name)
+    fact["observed_at"] = spoofed_past.isoformat()
+    fact["available_at"] = spoofed_past.isoformat()
+
+    raw = {"facts": [fact]}
+    summary = ingest_facts(db_session, raw, now)
+
+    assert summary.n_persisted == 1
+    row = db_session.query(PlayerAvailability).filter_by(match_id=match.id).one()
+    assert row.observed_at == now
+    assert row.available_at == now
+    assert row.observed_at != spoofed_past
 
 
 def test_unknown_match_id_is_skipped_and_reported_without_crashing_batch(db_session):
@@ -115,7 +148,7 @@ def test_unknown_match_id_is_skipped_and_reported_without_crashing_batch(db_sess
     assert summary.n_skipped == 1
     assert str(bogus_match_id) in summary.skip_reasons[0]
 
-    persisted = db_session.query(PlayerAvailability).one()
+    persisted = db_session.query(PlayerAvailability).filter_by(match_id=valid_match.id).one()
     player = db_session.get(Player, persisted.player_id)
     assert player.name == "Jugador Real"
 
@@ -130,7 +163,7 @@ def test_unknown_team_name_is_skipped_and_reported(db_session):
     assert summary.n_persisted == 0
     assert summary.n_skipped == 1
     assert "Equipo Que No Existe" in summary.skip_reasons[0]
-    assert db_session.query(PlayerAvailability).count() == 0
+    assert db_session.query(PlayerAvailability).filter_by(match_id=match.id).count() == 0
 
 
 def test_invalid_schema_fact_is_skipped_and_reported(db_session):
@@ -216,7 +249,7 @@ def test_raw_fact_matches_original_input_exactly(db_session):
     # que la identity map de SQLAlchemy ya tenía en memoria — así el test
     # verifica el round-trip real por JSONB, no una tautología.
     db_session.expire_all()
-    row = db_session.query(PlayerAvailability).one()
+    row = db_session.query(PlayerAvailability).filter_by(match_id=match.id).one()
     assert row.raw_fact == original_fact
 
 
@@ -224,6 +257,7 @@ def test_news_signal_without_match_or_team_persists(db_session):
     """news_signal permite match_id/team_name nulos (a diferencia de
     player_availability, donde team_name es obligatorio)."""
     now = datetime.now(timezone.utc)
+    source_name = f"Test Club Site {_RUN_SUFFIX}"
     raw = {
         "facts": [
             {
@@ -232,7 +266,7 @@ def test_news_signal_without_match_or_team_persists(db_session):
                 "team_name": None,
                 "signal_type": "coaching_change",
                 "description": "Cambio de entrenador confirmado por el club.",
-                "source_name": f"Test Club Site {_RUN_SUFFIX}",
+                "source_name": source_name,
                 "source_type": "official_club",
                 "reliability_level": "A",
                 "source_url": None,
@@ -245,7 +279,8 @@ def test_news_signal_without_match_or_team_persists(db_session):
     summary = ingest_facts(db_session, raw, now)
 
     assert summary.n_persisted == 1
-    row = db_session.query(NewsSignal).one()
+    source = db_session.query(DataSource).filter_by(name=source_name).one()
+    row = db_session.query(NewsSignal).filter_by(source_id=source.id).one()
     assert row.team_id is None
     assert row.match_id is None
     assert row.observed_at == now
