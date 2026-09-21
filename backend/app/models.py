@@ -1,8 +1,9 @@
-"""Modelos SQLAlchemy para las tablas núcleo necesarias en Fases 2-3.
-
-Cubre competitions/seasons/teams/matches/results (Fase 2) y feature_snapshots
-(Fase 3). El resto del esquema de docs/data/schema.md (player_availability,
-news_signals, model_versions, predictions, etc.) se agrega en las fases que
+"""Modelos SQLAlchemy para las tablas núcleo necesarias en Fases 2-3, más las
+que se fueron agregando a medida que las fases posteriores las necesitaron
+(match_lineups/model_versions/evaluation_metrics, Fase 4-6; data_sources/
+player_availability/news_signals, Fase 6 — activación del Football
+Intelligence Agent). El resto del esquema de docs/data/schema.md
+(predictions, bookmaker_snapshots, etc.) se agrega en las fases que
 realmente las necesitan, no de antemano.
 """
 
@@ -223,10 +224,11 @@ class Player(Base):
     """Nota (Fase 6, ADR-0003): la fuente de datos NO tiene lesiones
     históricas para 2022-2024 (verificado con una llamada real, no asumido
     de la documentación). Sí tiene alineaciones titulares. Por eso esta
-    tabla y `match_lineups` reemplazan, por ahora, a la `player_availability`
-    de docs/data/schema.md (pensada para status de lesión/suspensión) —
-    se agrega esa tabla más adelante si se consigue una fuente que sí la
-    tenga; no se inventa el dato."""
+    tabla y `match_lineups` cubrieron, hasta que se activó el Football
+    Intelligence Agent, el rol que `PlayerAvailability` (más abajo en este
+    archivo) tiene ahora para status de lesión/suspensión — esa tabla existe
+    desde entonces pero todavía sin datos: el agente que la puebla se activa
+    en una tarea separada, esto es solo el esquema."""
 
     __tablename__ = "players"
 
@@ -251,3 +253,99 @@ class MatchLineup(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (UniqueConstraint("match_id", "team_id", "player_id"),)
+
+
+class DataSource(Base):
+    """Fuente de información cualitativa consumida por el Football
+    Intelligence Agent (jerarquía Nivel A-E, ver ADR-0020 para la lista
+    concreta de niveles y fuentes reales). `reliability_level` queda como
+    texto libre (no enum cerrado) porque la jerarquía puede ganar/perder
+    fuentes sin requerir una migración cada vez — el valor esperado hoy es
+    "A"-"E" según ADR-0020."""
+
+    __tablename__ = "data_sources"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    reliability_level: Mapped[str] = mapped_column(String, nullable=False)
+    source_type: Mapped[str] = mapped_column(String, nullable=False)
+    url: Mapped[str | None] = mapped_column(String)
+    notes: Mapped[str | None] = mapped_column(String)
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class PlayerAvailability(Base):
+    """Hecho estructurado de disponibilidad de un jugador (lesión,
+    suspensión, duda, rotación), producido por el Football Intelligence
+    Agent y persistido acá — nunca escrito directamente por ese agente
+    (ver `.claude/agents/football-intelligence.md`, "Qué NO debe hacer").
+
+    Cinco timestamps separados, nunca colapsados en uno (Regla P0 de
+    anti-leakage del mismo documento): `event_time`/`published_at` son
+    metadato informativo; `available_at` es el único corte real usado por
+    el feature builder (`available_at <= as_of_timestamp`), y por defecto
+    es igual a `observed_at`, nunca a `published_at`. El constraint
+    `ck_player_availability_available_at_after_observed_at` bloquea a
+    nivel BD la violación más peligrosa: que `available_at` quede antes
+    de `observed_at` (leakage retroactivo)."""
+
+    __tablename__ = "player_availability"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    player_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("players.id"), nullable=False)
+    # Requerido (a diferencia de match_lineups, donde se infiere de la
+    # alineación): players no tiene team_id propio (ver nota en Player),
+    # así que acá hay que declararlo explícitamente.
+    team_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("teams.id"), nullable=False)
+    match_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("matches.id"))
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String)
+    confidence: Mapped[str] = mapped_column(String, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("data_sources.id"), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String)
+    event_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    raw_fact: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        CheckConstraint(
+            "available_at >= observed_at",
+            name="ck_player_availability_available_at_after_observed_at",
+        ),
+    )
+
+
+class NewsSignal(Base):
+    """Señal contextual más amplia (cambio de DT, noticia táctica, sanción
+    administrativa) no atada a la disponibilidad de un jugador puntual —
+    mismo patrón de 5 timestamps y misma regla P0 de anti-leakage que
+    `PlayerAvailability`, ver ese modelo para el detalle."""
+
+    __tablename__ = "news_signals"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    team_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("teams.id"))
+    match_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("matches.id"))
+    signal_type: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("data_sources.id"), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String)
+    event_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    raw_fact: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        CheckConstraint(
+            "available_at >= observed_at",
+            name="ck_news_signals_available_at_after_observed_at",
+        ),
+    )

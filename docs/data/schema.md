@@ -38,13 +38,30 @@ Titulares de un partido. `id`, `match_id`, `team_id`, `player_id`, `position`. �
 ### `evaluation_metrics`
 `id`, `model_version_id`, `evaluation_run_at`, `segment` (texto libre: `overall`, `fold=2023`, etc. — sin columna `horizon` separada todavía, ver razonamiento en `app/models.py::EvaluationMetric`), `log_loss`, `brier_score`, `ece` (nullable), `accuracy`, `n_samples`.
 
+### `data_sources`
+`id`, `name` (único — ej. "TyC Sports", "Boca Juniors - sitio oficial"), `reliability_level` (texto libre, valores esperados "A"-"E" según la jerarquía concreta de ADR-0020 — sin enum cerrado a nivel BD para no requerir una migración si la jerarquía gana/pierde una fuente), `source_type` (ej. `official_club`/`official_federation`/`credentialed_journalist`/`established_outlet`/`aggregator`/`social_media`/`unverified`), `url` (nullable), `notes` (nullable), `active` (default `true`). Consumida por el Football Intelligence Agent (`.claude/agents/football-intelligence.md`).
+
+### `player_availability`
+Hecho estructurado de disponibilidad de un jugador (lesión, suspensión, duda, rotación), producido por el Football Intelligence Agent y persistido por un pipeline determinista de Data & Backend Platform — el agente cualitativo nunca escribe directo a esta tabla. `id`, `player_id`, `team_id` (obligatorio: `players` no tiene `team_id` propio, ver nota en esa tabla — acá hace falta explícitamente), `match_id` (nullable: un reporte de estado no siempre está atado a un partido concreto todavía), `status` (`unavailable`/`doubtful`/`available`/`rotation_risk`), `reason` (nullable: `muscle_injury`/`suspension`/`rotation`/`personal`/`unknown`), `confidence` (espeja el `reliability_level` de la fuente), `source_id` (FK a `data_sources`), `source_url` (nullable — el artículo/post específico, distinto de `data_sources.url`), `raw_fact` (jsonb, NOT NULL — el hecho estructurado completo tal como lo produjo el agente, para trazabilidad/auditoría total), más los 5 timestamps de abajo.
+
+### `news_signals`
+Señal contextual más amplia no atada a la disponibilidad de un jugador puntual (cambio de DT, noticia táctica, sanción administrativa). `id`, `team_id` (nullable), `match_id` (nullable), `signal_type` (`coaching_change`/`tactical_news`/`suspension_admin`/`other`), `description` (NOT NULL), `source_id`, `source_url` (nullable), `raw_fact` (jsonb, NOT NULL), más los mismos 5 timestamps que `player_availability`.
+
+**Los 5 timestamps de `player_availability`/`news_signals`** (Regla P0 de anti-leakage, `.claude/agents/football-intelligence.md`) — nunca colapsados en uno solo:
+- `event_time` (nullable): cuándo ocurrió el evento en el mundo real, si se conoce.
+- `published_at` (nullable): cuándo la fuente lo publicó. Metadato informativo — nunca se usa como corte de disponibilidad.
+- `observed_at` (NOT NULL): cuándo el proceso de investigación lo encontró.
+- `ingested_at` (NOT NULL, default `now()`): cuándo quedó persistido en la base.
+- `available_at` (NOT NULL): el corte real usado por el feature builder (`available_at <= as_of_timestamp` del snapshot correspondiente). Política por defecto: `available_at = observed_at`, nunca `published_at`.
+
+Constraint a nivel BD en ambas tablas (`ck_player_availability_available_at_after_observed_at` / `ck_news_signals_available_at_after_observed_at`): `available_at >= observed_at`. Bloquea leakage retroactivo — un artículo publicado antes de que el sistema lo encontrara no puede "estar disponible" antes de haber sido observado.
+
 ## Diseñado, NO implementado todavía (deferido con trigger explícito en ADR-0013/0014/0019)
 
 No existen en `models.py` ni tienen migración. Se listan acá para que el diseño no se pierda, no como estado actual:
 
 - **`predictions`** / **`prediction_runs`** — el pipeline de predicción en vivo (Fase 7-8) todavía no existe.
 - **`bookmaker_snapshots`** — benchmark de mercado (ADR-0003), pendiente de confirmar cobertura de The Odds API o usar API-Football odds (ver discusión en ADR-0018 sobre capturador prospectivo).
-- **`player_availability`**, **`news_signals`**, **`data_sources`** — Football Intelligence Agent no está activado todavía (ver `.claude/agents/football-intelligence.md`); cuando se active, `news_signals`/`player_availability` usan 5 timestamps (`event_time`/`published_at`/`observed_at`/`ingested_at`/`available_at`), no uno solo.
 - **`match_stats`** — estadísticas de partido más allá del resultado (goles, xG, etc.) — Fase 6+ si se justifica con backtesting.
 - **`match_schedule_history`**, timestamps separados en `results` (`event_ended_at`/`provider_updated_at`/`observed_at`) — trigger explícito: Fase 7.
 - **`score_90`/`score_extra_time`/`penalties_*`** en `results` — trigger explícito: primera competición con fase eliminatoria (ADR-0019).
