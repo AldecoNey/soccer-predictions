@@ -55,3 +55,18 @@ def get_lineups(fixture_id: int) -> list[dict]:
     alineación cargada para ese partido (pasa con partidos muy viejos o
     de categorías menores)."""
     return _get("/fixtures/lineups", {"fixture": fixture_id})
+
+
+def get_odds(fixture_id: int) -> list[dict]:
+    """Cuotas de bookmakers para un partido (ADR-0021). 1 request por partido.
+
+    Devuelve una lista con un elemento por "batch" de actualización del
+    proveedor (normalmente 1, puede ser más de 1 si hubo varias tandas de
+    actualización) — cada elemento trae `bookmakers`, cada uno con sus
+    `bets` (mercados). Este cliente no filtra por mercado ni bookmaker; eso
+    es responsabilidad de quien consume la respuesta (ver
+    `pipelines/capture_odds_snapshot.py`, que solo extrae "Match Winner" por
+    decisión de ADR-0021). Devuelve [] si el proveedor todavía no tiene
+    cuotas cargadas para ese partido (plausible para partidos varios días
+    en el futuro — no es un error)."""
+    return _get("/odds", {"fixture": fixture_id})

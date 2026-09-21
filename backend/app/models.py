@@ -2,9 +2,9 @@
 que se fueron agregando a medida que las fases posteriores las necesitaron
 (match_lineups/model_versions/evaluation_metrics, Fase 4-6; data_sources/
 player_availability/news_signals, Fase 6 — activación del Football
-Intelligence Agent). El resto del esquema de docs/data/schema.md
-(predictions, bookmaker_snapshots, etc.) se agrega en las fases que
-realmente las necesitan, no de antemano.
+Intelligence Agent; bookmaker_snapshots, Fase 6 — ADR-0021, benchmark de
+cuotas). El resto del esquema de docs/data/schema.md (predictions, etc.) se
+agrega en las fases que realmente las necesitan, no de antemano.
 """
 
 import uuid
@@ -349,3 +349,37 @@ class NewsSignal(Base):
             name="ck_news_signals_available_at_after_observed_at",
         ),
     )
+
+
+class BookmakerSnapshot(Base):
+    """Cuota 1X2 ("Match Winner") de un bookmaker para un partido, capturada
+    vía el endpoint `/odds` de API-Football (ADR-0021) — solo benchmark
+    externo, nunca feature del modelo de producción sin un ADR nuevo
+    (CLAUDE.md regla 4 / ADR-0003 / ADR-0009).
+
+    A diferencia de `player_availability`/`news_signals`, acá no hay una
+    pareja `observed_at`/`available_at` que proteger con un CheckConstraint
+    anti-leakage: `captured_at` es simplemente cuándo corrió nuestro script
+    (un único valor compartido por corrida, mismo patrón que
+    `ingest_intelligence_facts.py`), y `provider_updated_at` es metadato
+    informativo del proveedor (`update` en la respuesta cruda) — no se usa
+    como corte de disponibilidad en ningún feature builder.
+
+    Populada bajo demanda por `pipelines/capture_odds_snapshot.py` — sin
+    cadencia automatizada todavía (deliberado, ver ADR-0021: automatizar la
+    captura es trabajo de Fase 7)."""
+
+    __tablename__ = "bookmaker_snapshots"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    match_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("matches.id"), nullable=False)
+    bookmaker_name: Mapped[str] = mapped_column(String, nullable=False)
+    odds_home: Mapped[float] = mapped_column(nullable=False)
+    odds_draw: Mapped[float] = mapped_column(nullable=False)
+    odds_away: Mapped[float] = mapped_column(nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    provider_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw_response: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (UniqueConstraint("match_id", "bookmaker_name", "captured_at"),)

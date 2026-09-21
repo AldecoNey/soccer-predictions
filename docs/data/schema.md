@@ -56,12 +56,18 @@ Señal contextual más amplia no atada a la disponibilidad de un jugador puntual
 
 Constraint a nivel BD en ambas tablas (`ck_player_availability_available_at_after_observed_at` / `ck_news_signals_available_at_after_observed_at`): `available_at >= observed_at`. Bloquea leakage retroactivo — un artículo publicado antes de que el sistema lo encontrara no puede "estar disponible" antes de haber sido observado.
 
+### `bookmaker_snapshots`
+Cuota 1X2 ("Match Winner") de un bookmaker para un partido, capturada vía el endpoint `/odds` de API-Football (ADR-0021) — solo benchmark externo, nunca feature del modelo de producción sin un ADR nuevo (regla no negociable de `CLAUDE.md` / ADR-0003 / ADR-0009). `id`, `match_id` (FK a `matches`), `bookmaker_name` (ej. "William Hill"), `odds_home`/`odds_draw`/`odds_away` (float, cuota decimal tal como la devuelve el proveedor), `captured_at` (timestamptz, NOT NULL — cuándo corrió nuestro script, un único valor compartido por corrida), `provider_updated_at` (timestamptz, nullable — el campo `update` de la respuesta del proveedor, cuándo API-Football dice que esa cuota cambió por última vez; metadato informativo, distinto de `captured_at`, no se usa como corte de disponibilidad), `raw_response` (jsonb, NOT NULL — el dict crudo por bookmaker tal como lo devuelve el proveedor, para trazabilidad). Único por `(match_id, bookmaker_name, captured_at)`.
+
+A diferencia de `player_availability`/`news_signals`, esta tabla no tiene CheckConstraint anti-leakage: no hay un par `observed_at`/`available_at` que proteger — `captured_at` es simplemente cuándo se ejecutó la captura, no un corte de disponibilidad para el feature builder.
+
+Poblada bajo demanda por `pipelines/capture_odds_snapshot.py` (partidos `status='scheduled'` con `kickoff_at` dentro de una ventana configurable, default 7 días) — solo mercado "Match Winner", sin cadencia automatizada todavía (deliberado, ver ADR-0021: automatizarla es trabajo de Fase 7).
+
 ## Diseñado, NO implementado todavía (deferido con trigger explícito en ADR-0013/0014/0019)
 
 No existen en `models.py` ni tienen migración. Se listan acá para que el diseño no se pierda, no como estado actual:
 
 - **`predictions`** / **`prediction_runs`** — el pipeline de predicción en vivo (Fase 7-8) todavía no existe.
-- **`bookmaker_snapshots`** — benchmark de mercado (ADR-0003), pendiente de confirmar cobertura de The Odds API o usar API-Football odds (ver discusión en ADR-0018 sobre capturador prospectivo).
 - **`match_stats`** — estadísticas de partido más allá del resultado (goles, xG, etc.) — Fase 6+ si se justifica con backtesting.
 - **`match_schedule_history`**, timestamps separados en `results` (`event_ended_at`/`provider_updated_at`/`observed_at`) — trigger explícito: Fase 7.
 - **`score_90`/`score_extra_time`/`penalties_*`** en `results` — trigger explícito: primera competición con fase eliminatoria (ADR-0019).
@@ -73,6 +79,6 @@ No existen en `models.py` ni tienen migración. Se listan acá para que el dise�
 
 ## Notas de diseño
 
-- **Por qué no hay tabla de odds como input del modelo:** decisión explícita (ADR-0003) — cualquier snapshot de cuotas existe solo para comparación externa, nunca como feature sin un ADR nuevo aprobado por el usuario.
+- **Por qué `bookmaker_snapshots` no es input del modelo:** decisión explícita (ADR-0003, ADR-0021) — existe solo para comparación externa (benchmark), nunca como feature sin un ADR nuevo aprobado por el usuario.
 - **Por qué `hyperparameters`/`features` son JSONB y no columnas explícitas:** el conjunto de features y la forma de los hiperparámetros evolucionan mientras se experimenta (ADR-0006); columnas rígidas obligarían a migraciones constantes durante la fase de experimentación.
 - **Tablas explícitamente fuera de alcance:** usuarios/autenticación (no hay cuentas en el MVP), apuestas/bankroll (módulo futuro separado, ver ADR-0009).
