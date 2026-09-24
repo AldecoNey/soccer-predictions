@@ -66,6 +66,17 @@ Verificado empíricamente (no asumido de la documentación de marketing, que el 
 
 Consecuencia práctica: la Fase 7 (automatización T-72/T-24/T-2 sobre partidos reales) ya no está bloqueada por falta de acceso a datos de temporada actual — el bloqueo que quedó documentado arriba ("no es viable con el plan Free bajo ninguna circunstancia") queda resuelto ahora que el plan es Pro. Se aprovecha además para extender el histórico de entrenamiento/evaluación con las temporadas 2025 y 2026 (parcial, solo partidos ya jugados) — más datos para los folds de walk-forward de ADR-0007/ADR-0010, que hasta ahora dependían de una muestra chica de 3 temporadas.
 
+## Actualización (2026-09-24): licencia de rhinoah/futbol-argentino-data resuelta — y aclaración de que nunca se usó
+
+Este ADR dejó pendiente "verificar licencia del repo antes de uso comercial" (Sección Fuentes) y nunca se resolvió — surgió como pregunta en HANDOFF-001 (handoff cruzado con el equipo de negocios, sesión separada "fulbolai-business-0c"), que investigó y verificó el texto real de `LICENSE-DATOS.md` del repo (no un resumen de búsqueda):
+
+- **Código del repo:** MIT.
+- **Datos:** **CC BY-SA 4.0** (derivan de Wikipedia en español) — permiten uso comercial, con dos condiciones: atribución (la columna `source` del dataset trae la URL de cada partido) y "compartir igual" si se publica una versión modificada del dataset como tal.
+- **Excepción:** algunos partidos de ascenso 2004-2010 tienen la fecha tomada de worldfootball.net, que solo permite uso no comercial — habría que filtrar por columna `source` antes de usar cualquier fila que dependa de esa fuente.
+- **Pregunta abierta para abogado (de Business, no resuelta acá):** si nuestro modelo entrenado con estos datos y las probabilidades que produce cuentan como "versión modificada" del dataset a efectos de la cláusula "compartir igual" — se presume que no, pero no está confirmado legalmente.
+
+**Aclaración importante encontrada al revisar esto:** `rhinoah/futbol-argentino-data` **nunca se integró al pipeline real** — `pipelines/ingest_historical_fixtures.py` ingiere exclusivamente desde API-Football (temporadas 2022-2026, ver `SEASONS_TO_INGEST`), no hay ninguna referencia a este dataset en `backend/`. Quedó como plan de bootstrap en este ADR pero no se implementó (la cobertura de API-Football terminó siendo suficiente). La licencia arriba es relevante si en el futuro se decide extender el histórico a antes de 2022 usando este dataset — hoy no aplica a ningún dato que esté efectivamente en producción.
+
 ## Fuentes
 
 - https://www.api-football.com/pricing (consultado 2026-09-19)
