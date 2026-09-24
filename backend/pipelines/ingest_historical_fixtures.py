@@ -19,14 +19,19 @@ from app.external.api_football import LIGA_PROFESIONAL_ARGENTINA_ID, get_fixture
 from app.models import Competition, Match, Result, Season, Team  # noqa: E402
 
 FINISHED_STATUSES = {"FT", "AET", "PEN"}
-# ADR-0019: el target 1-X-2 de FulbolAI es el resultado a 90' + descuento,
-# NUNCA incluyendo prórroga/penales. Liga Profesional Argentina (fase
-# regular) no tiene AET/PEN, así que esto nunca se ejercitó con datos reales
-# — verificado, 0 partidos con esos status en la base al escribir esto. Si
-# esto cambia (ej. al incorporar Copa Argentina), NO asumir que
-# `goals.home/away` de API-Football sigue siendo el marcador de 90' para
-# esos casos: verificarlo contra la API real antes de ingerir el primer caso,
-# y ver el guard de abajo.
+# ADR-0019 (actualizado 2026-09-24, hallazgo real): Liga Profesional Argentina
+# SÍ tiene fase eliminatoria desde el formato 2025+ (30 equipos, Apertura/
+# Clausura + playoffs) — verificado contra 45 partidos de fase eliminatoria
+# reales, 12 fueron a AET/PEN. Se confirmó contra la API real que
+# `goals.home/away` NO siempre es el marcador de 90': en los 4 casos AET
+# encontrados, `goals` incluía los goles de alargue (ej. fulltime 1-1 ->
+# goals 2-3 tras el gol de alargue) — exactamente el riesgo que este ADR
+# advertía sin poder confirmar todavía. En los 8 casos PEN (sin alargue antes
+# de penales en este certamen) `goals` coincidía con `fulltime` por no haber
+# alargue que lo alterara, no por ser el campo correcto en general.
+# Corrección: usar SIEMPRE `score.fulltime.home/away` como fuente de verdad
+# del resultado a 90' cuando esté presente (ver abajo) — `goals` ya no se usa
+# como fuente principal, solo como fallback si `fulltime` faltara.
 STATUSES_NEEDING_90MIN_VERIFICATION = {"AET", "PEN"}
 SEASONS_TO_INGEST = (2022, 2023, 2024, 2025, 2026)  # requiere plan Pro para 2025/2026 (ver ADR-0003)
 
@@ -37,6 +42,19 @@ def _outcome(home_goals: int, away_goals: int) -> str:
     if away_goals > home_goals:
         return "away"
     return "draw"
+
+
+def resolve_90min_score(fx: dict) -> tuple[int | None, int | None]:
+    """ADR-0019: `score.fulltime` es la fuente de verdad del resultado a 90'
+    — nunca `goals`, que para partidos AET puede incluir el gol de alargue
+    (hallazgo real 2026-09-24, ver el comentario junto a
+    STATUSES_NEEDING_90MIN_VERIFICATION). Fallback a `goals` solo si
+    `fulltime` faltara en la respuesta (no debería pasar en la práctica, pero
+    sin asumirlo)."""
+    fulltime = (fx.get("score") or {}).get("fulltime") or {}
+    home = fulltime.get("home") if fulltime.get("home") is not None else fx["goals"]["home"]
+    away = fulltime.get("away") if fulltime.get("away") is not None else fx["goals"]["away"]
+    return home, away
 
 
 def _get_or_create_competition(session) -> Competition:
@@ -87,7 +105,7 @@ def ingest_season(session, season_year: int, seasons_meta: list[dict]) -> dict:
     season = _get_or_create_season(session, competition, season_year, seasons_meta)
     team_cache: dict[int, Team] = {}
 
-    stats = {"matches_created": 0, "matches_updated": 0, "results_created": 0}
+    stats = {"matches_created": 0, "matches_updated": 0, "results_created": 0, "results_corrected": 0}
     fixtures = get_fixtures(season_year)
     for fx in fixtures:
         home = _get_or_create_team(session, team_cache, fx["teams"]["home"]["id"], fx["teams"]["home"]["name"])
@@ -96,11 +114,15 @@ def ingest_season(session, season_year: int, seasons_meta: list[dict]) -> dict:
         fixture_id = fx["fixture"]["id"]
         match = session.query(Match).filter_by(api_football_id=fixture_id).one_or_none()
         status_short = fx["fixture"]["status"]["short"]
-        if status_short in STATUSES_NEEDING_90MIN_VERIFICATION:
+        fulltime_available = ((fx.get("score") or {}).get("fulltime") or {}).get("home") is not None
+        if status_short in STATUSES_NEEDING_90MIN_VERIFICATION and not fulltime_available:
+            # fulltime ausente es el único caso realmente riesgoso ahora: cae
+            # al fallback de `goals`, que para AET puede incluir el gol de
+            # alargue (ver hallazgo arriba) — con fulltime presente no hace
+            # falta advertir, ya se está usando la fuente correcta.
             print(
-                f"  [WARN ADR-0019] fixture {fixture_id} status={status_short}: nunca visto en datos reales hasta ahora. "
-                f"NO se verificó si goals.home/away representa el marcador de 90' o el final — revisar antes de confiar "
-                f"en este resultado como target 1-X-2."
+                f"  [WARN ADR-0019] fixture {fixture_id} status={status_short}: score.fulltime ausente en la respuesta, "
+                f"cayendo a goals.home/away como fallback — puede incluir goles de alargue, revisar manualmente."
             )
         match_status = "finished" if status_short in FINISHED_STATUSES else "scheduled"
         if status_short in {"PST", "SUSP"}:
@@ -136,19 +158,34 @@ def ingest_season(session, season_year: int, seasons_meta: list[dict]) -> dict:
             match.status = match_status
             stats["matches_updated"] += 1
 
-        if match_status == "finished" and fx["goals"]["home"] is not None:
-            existing_result = session.query(Result).filter_by(match_id=match.id).one_or_none()
-            if existing_result is None:
-                home_goals, away_goals = fx["goals"]["home"], fx["goals"]["away"]
-                session.add(
-                    Result(
-                        match_id=match.id,
-                        home_score=home_goals,
-                        away_score=away_goals,
-                        outcome=_outcome(home_goals, away_goals),
+        if match_status == "finished":
+            home_goals, away_goals = resolve_90min_score(fx)
+            if home_goals is not None:
+                existing_result = session.query(Result).filter_by(match_id=match.id).one_or_none()
+                if existing_result is None:
+                    session.add(
+                        Result(
+                            match_id=match.id,
+                            home_score=home_goals,
+                            away_score=away_goals,
+                            outcome=_outcome(home_goals, away_goals),
+                        )
                     )
-                )
-                stats["results_created"] += 1
+                    stats["results_created"] += 1
+                elif existing_result.home_score != home_goals or existing_result.away_score != away_goals:
+                    # Corrige un resultado ya guardado incorrectamente (ej. el
+                    # bug de AET arreglado el 2026-09-24, ver ADR-0019) — a
+                    # diferencia de `predictions` (ADR-0008, append-only), un
+                    # resultado corregido hacia la verdad de la API no es
+                    # "reescribir historia", es arreglar un dato mal extraído.
+                    print(
+                        f"  [FIX ADR-0019] fixture {fixture_id}: corrigiendo resultado de "
+                        f"{existing_result.home_score}-{existing_result.away_score} a {home_goals}-{away_goals} (90')"
+                    )
+                    existing_result.home_score = home_goals
+                    existing_result.away_score = away_goals
+                    existing_result.outcome = _outcome(home_goals, away_goals)
+                    stats["results_corrected"] += 1
 
     session.commit()
     return stats
@@ -158,7 +195,7 @@ def main() -> int:
     session = SessionLocal()
     try:
         seasons_meta = get_league_seasons()
-        totals = {"matches_created": 0, "matches_updated": 0, "results_created": 0}
+        totals = {"matches_created": 0, "matches_updated": 0, "results_created": 0, "results_corrected": 0}
         for year in SEASONS_TO_INGEST:
             print(f"Ingiriendo temporada {year}...")
             stats = ingest_season(session, year, seasons_meta)

@@ -33,6 +33,25 @@ Los campos para representar esto correctamente en el esquema (`score_90`, `score
 - Negativas: ninguna — es documentación, no cambia comportamiento actual.
 - Trigger de revisión: al incorporar la primera competición con fase eliminatoria (Copa Argentina u otra) — ahí se implementan los campos deferidos en ADR-0013 y se verifica empíricamente qué representa `goals.home/away` en fixtures `AET`/`PEN` de API-Football, antes de ingerir el primer caso real.
 
+## Actualización (2026-09-24): el trigger se disparó — el formato 2025+ de Liga Profesional Argentina SÍ tiene fase eliminatoria, y `goals` SÍ estaba mal para AET
+
+Al validar `elo_tuned` con los folds 2025/2026 (evaluación separada, ver ADR-0024), se descubrió que **Liga Profesional Argentina cambió de formato en 2025** (30 equipos, fases Apertura/Clausura + playoffs) — algo que no existía cuando se escribió esta ADR y que **no** requirió agregar una copa nueva, como se asumía acá. Verificado contra los 45 partidos de fase eliminatoria ya jugados en 2025/2026: **12 fueron a AET/PEN** (4 AET, 8 PEN).
+
+Se verificó contra la API real (no asumido) que la advertencia de esta ADR era fundada: en los **4 casos AET, `goals.home/away` SÍ incluía el gol de alargue** — ej. fixture 1486749 (Deportivo Riestra vs Barracas Central): `score.fulltime`=0-0, pero `goals`=0-1 (el gol de alargue quedó mezclado). Los 8 casos PEN no tuvieron este problema, pero por casualidad: esa ronda del certamen va directo de 90' a penales sin alargue, así que ahí `goals` y `fulltime` coincidían — no porque `goals` fuera la fuente correcta en general.
+
+**Consecuencia real, no solo teórica:** 4 resultados en `results` estaban mal guardados — los 4 casos AET, donde `outcome` decía "gana alguien" cuando en realidad los 90' habían sido empate:
+
+| Fixture | Partido | Guardado (mal) | Corregido (90') |
+|---|---|---|---|
+| 1486749 | Riestra vs Barracas Central | 0-1 (away) | 0-0 (draw) |
+| 1544177 | Boca Juniors vs Huracán | 2-3 (away) | 1-1 (draw) |
+| 1544850 | Argentinos JRS vs Huracán | 1-0 (home) | 0-0 (draw) |
+| 1544851 | Rosario Central vs Racing | 2-1 (home) | 1-1 (draw) |
+
+**Fix aplicado:** `pipelines/ingest_historical_fixtures.py::resolve_90min_score()` ahora usa `score.fulltime.home/away` como fuente de verdad (con fallback a `goals` solo si `fulltime` faltara), reemplazando el uso directo de `goals`. A diferencia de `predictions` (ADR-0008, append-only), `Result` ahora SÍ se corrige en re-ingesta si `score.fulltime` difiere de lo guardado — no es "reescribir historia", es arreglar un dato mal extraído hacia la verdad ya conocida de la API. 5 tests nuevos (`test_ingest_historical_fixtures.py`) sobre la función pura, incluyendo los 2 casos reales exactos (AET con gol de alargue, PEN sin alargue) para que esto no se repita en silencio.
+
+**Impacto en experimentos ya cerrados (ADR-0011, ADR-0022):** 4 partidos sobre ~1662 evaluados (0.24%) — se revisó el efecto en la evaluación de `elo_tuned` (la más reciente y la única con veredicto ajustado, ver ADR-0024) y el cambio fue marginal (variación de centésimas en log_loss, muy por debajo del ruido estadístico ya identificado). No se re-corrieron ADR-0011/ADR-0022 — ambos resultados eran negativos y consistentes across folds; un cambio de este tamaño no tiene margen realista para revertir esas conclusiones.
+
 ## Fuentes
 
-Verificación directa contra los datos ya cargados en Neon (0 partidos con status ≠ finished/scheduled). Convención de mercado (cuotas 1-X-2 = tiempo reglamentario) basada en conocimiento general de la industria, no se citó una fuente específica por no ser una afirmación técnica verificable puntualmente.
+Verificación directa contra los datos ya cargados en Neon (0 partidos con status ≠ finished/scheduled, al momento original de esta ADR). Convención de mercado (cuotas 1-X-2 = tiempo reglamentario) basada en conocimiento general de la industria, no se citó una fuente específica por no ser una afirmación técnica verificable puntualmente. Actualización 2026-09-24: verificación directa contra `GET /fixtures?id=<fixture>` de API-Football para los 45 partidos de fase eliminatoria de 2025/2026 y sus objetos `score.fulltime`/`score.extratime`/`score.penalty` completos.
