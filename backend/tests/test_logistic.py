@@ -9,6 +9,42 @@ from sklearn.preprocessing import StandardScaler
 from app.prediction_models import logistic
 
 
+def _base_features():
+    return {
+        "home": {"points_per_game": 1.5, "goal_difference": 3, "rest_days": 6},
+        "away": {"points_per_game": 1.0, "goal_difference": -2, "rest_days": 4},
+    }
+
+
+def test_vectorize_with_h2h_appends_two_values():
+    features = _base_features()
+    h2h = {"matches_played": 4, "home_win_rate": 0.75, "draw_rate": 0.25, "avg_goal_diff": 1.5}
+
+    vec = logistic.vectorize(features, h2h=h2h)
+
+    assert len(vec) == len(logistic.FEATURE_NAMES_WITH_H2H) == len(logistic.FEATURE_NAMES) + 2
+    assert vec[-2:] == [0.75, 1.5]
+
+
+def test_vectorize_without_h2h_matches_base_feature_count():
+    features = _base_features()
+    vec = logistic.vectorize(features)
+    assert len(vec) == len(logistic.FEATURE_NAMES)
+
+
+def test_vectorize_h2h_neutral_defaults_when_no_prior_meetings():
+    """Sin encuentros previos, head_to_head_features devuelve None — vectorize
+    debe usar defaults neutros (1/3, no 0.0, para home_win_rate; 0.0 para
+    avg_goal_diff), no crashear ni tratar "sin evidencia" como "siempre pierde"."""
+    features = _base_features()
+    h2h = {"matches_played": 0, "home_win_rate": None, "draw_rate": None, "avg_goal_diff": None}
+
+    vec = logistic.vectorize(features, h2h=h2h)
+
+    assert vec[-2] == logistic.DEFAULT_H2H_HOME_WIN_RATE == 1.0 / 3.0
+    assert vec[-1] == logistic.DEFAULT_H2H_AVG_GOAL_DIFF == 0.0
+
+
 def test_scaler_is_fit_only_on_training_data():
     x_train = np.array([[0.0, 1.0], [2.0, 3.0], [4.0, 5.0], [6.0, 7.0]])
     y_train = np.array([0, 1, 2, 0])

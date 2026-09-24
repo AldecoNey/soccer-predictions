@@ -30,10 +30,31 @@ engine = (
             # simplemente nunca vuelve de un read()). Los keepalives de TCP
             # hacen que el SO detecte la conexión muerta y la cierre con error
             # en vez de bloquear para siempre.
+            #
+            # Nota honesta (ADR-0022, 2026-09-24): esto NO eliminó el problema
+            # — volvió a colgarse (8-24 min, mismo síntoma) durante el
+            # experimento de H2H, en Windows. Los valores de acá se ajustaron
+            # más agresivos (detección en ~25s en vez de ~60s) como mejora de
+            # mejor esfuerzo, no como solución confirmada — es posible que
+            # libpq/Windows no propague estos parámetros al socket real de la
+            # misma forma que en Linux, o que el problema esté en un punto de
+            # la red que ni el keepalive alcanza a ver. Mientras no bloquee
+            # trabajo (hay un workaround de cache en pipelines/train_logistic_h2h.py
+            # para este caso puntual), queda como riesgo operacional conocido
+            # a revisar en serio si Fase 7 (pipeline en vivo) lo vuelve crítico.
             "keepalives": 1,
-            "keepalives_idle": 30,
-            "keepalives_interval": 10,
+            "keepalives_idle": 10,
+            "keepalives_interval": 5,
             "keepalives_count": 3,
+            # Se intentó agregar "options": "-c statement_timeout=30000" acá
+            # como defensa adicional — Neon lo rechaza en su endpoint pooled
+            # ("unsupported startup parameter in options: statement_timeout...
+            # use unpooled connection", verificado en vivo, rompía TODOS los
+            # tests). Revertido. Si se quiere un statement_timeout real, hay
+            # que setearlo por sesión después de conectar (evento `connect` de
+            # SQLAlchemy + `SET statement_timeout`), no vía connect_args — no
+            # se implementó esa versión, queda pendiente si el problema de
+            # cuelgues sigue apareciendo.
         },
     )
     if settings.database_url

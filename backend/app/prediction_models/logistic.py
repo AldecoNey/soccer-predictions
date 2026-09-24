@@ -14,15 +14,28 @@ from app.prediction_models.contract import validate_probability_triple
 
 FEATURE_NAMES = ["home_ppg", "home_goal_diff", "home_rest_days", "away_ppg", "away_goal_diff", "away_rest_days"]
 FEATURE_NAMES_WITH_ROTATION = [*FEATURE_NAMES, "home_rotation_index", "away_rotation_index"]
+# ADR-0022: a diferencia de rotation_index, head_to_head_features (app/features_h2h.py)
+# no tiene el problema de oráculo, así que es un candidato real de producción,
+# no solo diagnóstico. Deliberadamente solo 2 features (no matches_played/draw_rate,
+# que son útiles para leer `raw`/debugging pero no como input del modelo) para
+# mantener la comparación en el mismo espíritu que rotation_index (+2 features).
+FEATURE_NAMES_WITH_H2H = [*FEATURE_NAMES, "h2h_home_win_rate", "h2h_avg_goal_diff"]
 
 DEFAULT_REST_DAYS = 7.0  # equipo sin historial previo: se asume descanso "normal", no se inventa un valor extremo
+# Sin encuentros previos entre los dos equipos, 0.0 implicaría "el local
+# siempre pierde" — una afirmación falsa que no está respaldada por ningún
+# dato. 1/3 es neutro: "no hay evidencia a favor de ningún resultado", el
+# mismo tipo de supuesto no informativo que ya se usa en baseline_naive
+# (ver app/prediction_models/naive.py) para el caso sin historial.
+DEFAULT_H2H_HOME_WIN_RATE = 1.0 / 3.0
+DEFAULT_H2H_AVG_GOAL_DIFF = 0.0  # neutro, consistente con cómo el resto del código default-ea numéricos desconocidos
 
 
 def _safe(value, default=0.0):
     return default if value is None else value
 
 
-def vectorize(features: dict, rotation: dict | None = None) -> list[float]:
+def vectorize(features: dict, rotation: dict | None = None, h2h: dict | None = None) -> list[float]:
     home, away = features["home"], features["away"]
     vec = [
         _safe(home["points_per_game"]),
@@ -34,6 +47,11 @@ def vectorize(features: dict, rotation: dict | None = None) -> list[float]:
     ]
     if rotation is not None:
         vec += [_safe(rotation.get("home")), _safe(rotation.get("away"))]
+    if h2h is not None:
+        vec += [
+            _safe(h2h.get("home_win_rate"), DEFAULT_H2H_HOME_WIN_RATE),
+            _safe(h2h.get("avg_goal_diff"), DEFAULT_H2H_AVG_GOAL_DIFF),
+        ]
     return vec
 
 
