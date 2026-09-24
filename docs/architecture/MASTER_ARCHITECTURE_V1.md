@@ -131,11 +131,11 @@ FUENTES EXTERNAS                 INGESTIÓN              ALMACENAMIENTO
 
 Ver ADR-0003 para la tabla comparativa completa con URLs y fechas de consulta (2026-09-19). Resumen de la decisión:
 
-- **Fixtures/resultados/alineaciones/lesiones:** API-Football, free tier (100 req/día).
-- **Bootstrap histórico:** dataset abierto `rhinoah/futbol-argentino-data` (GitHub, gratis).
-- **Benchmark de cuotas:** The Odds API, free tier — **pendiente confirmar** cobertura de Liga Profesional Argentina antes de construir el módulo.
+- **Fixtures/resultados/alineaciones:** API-Football, plan Pro ($19/mes, 7500 req/día) — el free tier bloqueaba por completo las temporadas 2025/2026, verificado con llamadas reales, el usuario aprobó el upgrade (ADR-0003).
+- **Bootstrap histórico:** `rhinoah/futbol-argentino-data` (GitHub) fue el plan original, pero **nunca se integró al pipeline** — la ingesta real usa solo API-Football (2022-2026). Licencia de todos modos resuelta (CC BY-SA 4.0 para los datos, MIT para el código) por si se retoma en el futuro (ADR-0003, actualización 2026-09-24).
+- **Benchmark de cuotas:** resuelto sin The Odds API — el endpoint `/odds` de la propia API-Football Pro ya cubre Liga Profesional Argentina, costo incremental $0 (ADR-0021).
 - **Descartados como dependencia automatizada:** football-data.org (no cubre Argentina gratis), Sportmonks (cobertura de Argentina no confirmada en plan barato), SofaScore y FBref (ToS prohíbe/no soporta scraping automatizado), Promiedos (sin API oficial, sin histórico).
-- **Costo:** el free tier de API-Football bloqueaba por completo las temporadas 2025/2026 (verificado con llamadas reales a la API, no documentación) — el usuario aprobó el upgrade a **API-Football Pro ($19/mes, 7500 req/día)**, activo desde 2026-09-19 (ADR-0003). Ya no es una reserva hipotética; es el gasto real actual, dentro del techo de $30/mes.
+- **Costo real actual: $19/mes**, dentro del techo de $40/mes (ADR-0023, actualizado desde $30/mes el 2026-09-24).
 
 ## F. Estrategia de datos
 
@@ -204,8 +204,8 @@ Sin dashboards complejos en V1 (Sección 20 del brief) — prioridad es confiabi
 | Base de datos (Neon free) | $0 | $0 |
 | Scheduling (GitHub Actions, repo público) | $0 | $0 |
 | Datos (API-Football) | $0 (free) | **$19/mes (Pro, activo desde 2026-09-19, ADR-0003)** |
-| Benchmark de odds (The Odds API free) | $0 | $0 (módulo no construido todavía) |
-| **Total** | **$0/mes** | **$19/mes**, dentro del límite de $30/mes |
+| Benchmark de odds | $0 | $0 (endpoint `/odds` de API-Football Pro, ya incluido — ADR-0021, sin costo incremental) |
+| **Total** | **$0/mes** | **$19/mes**, dentro del límite de $40/mes (ADR-0023) |
 
 ## N. Riesgos (registro priorizado)
 

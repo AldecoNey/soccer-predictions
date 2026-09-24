@@ -22,4 +22,4 @@ Las probabilidades finales siempre provienen de modelos cuantitativos reproducib
 
 ## Presupuesto
 
-Máximo USD 30/mes combinando datos + hosting. Actualmente ~$19-26/mes (API-Football Pro $19 + hosting, ver ADR-0002/0003/0017 y sección de costos del documento maestro).
+Máximo USD 40/mes combinando datos + hosting (actualizado 2026-09-24, ADR-0023). Actualmente ~$19-26/mes (API-Football Pro $19 + hosting, ver ADR-0002/0003/0017 y sección de costos del documento maestro).
