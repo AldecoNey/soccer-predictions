@@ -18,7 +18,9 @@ Antes de escribir o aprobar cualquier código que toque el motor de predicción,
 
 ## Alcance del MVP
 
-Solo Primera División Argentina (Liga Profesional). No agregar otras competiciones ni funcionalidades de apuestas/value betting sin que el roadmap (`docs/roadmap/ROADMAP.md`) llegue a esa fase y el usuario lo apruebe explícitamente.
+Solo Primera División Argentina (Liga Profesional) — esto no cambia. No agregar otras competiciones sin que el roadmap (`docs/roadmap/ROADMAP.md`) llegue a esa fase y el usuario lo apruebe explícitamente.
+
+**Eje de apuestas (agregado 2026-09-25, ADR-0027 — no reemplaza nada de lo anterior):** el usuario aprobó explícitamente, como *agregado* al diseño original (no como cambio), mostrar en Fase 9 "cuota justa" (1÷probabilidad propia) y una calculadora de margen con cuotas que el propio usuario final ingresa — ninguna de las dos usa datos de terceros. Gateado detrás de ADR-0026 (umbral de calidad) y no antes de Fase 9. "Señales de valor" contra el mercado siguen sin gate cerrado (ver HANDOFF-003). ADR-0025 (nunca mostrar cuotas/datos crudos de API-Football) sigue vigente sin excepción.
 
 ## Reglas estructurales no negociables
 
